@@ -12,9 +12,11 @@ import Layout from '../../../../components/layout';
 function Instruments() {
   const userInfo = useSelector((state) => state.currentUser);
   const { items: instruments, loaded: instrumentsLoaded } = useSelector(
-    (state) => state.instruments
+    (state) => state.instruments,
   );
-  const sortedIntruments = instrumentsLoaded ? Object.values(instruments).sort((A, B) => A.name > B.name): [];
+  const sortedIntruments = instrumentsLoaded
+    ? Object.values(instruments).sort((A, B) => A.name > B.name)
+    : [];
   const roster = useSelector((state) => state.roster);
   const router = useRouter();
   const { slug } = router.query;
@@ -24,9 +26,12 @@ function Instruments() {
       if (!instrumentsLoaded) {
         dispatch(fetchInstruments(userInfo.token));
       }
-      if ((!roster.loaded && slug) || (roster.loaded && slug && slug !== roster.courseSlug)) {
+      if (
+        (!roster.loaded && slug) ||
+        (roster.loaded && slug && slug !== roster.courseSlug)
+      ) {
         dispatch(
-          fetchRoster({ djangoToken: userInfo.token, courseSlug: slug })
+          fetchRoster({ djangoToken: userInfo.token, courseSlug: slug }),
         );
       }
     }
@@ -37,7 +42,7 @@ function Instruments() {
       <p>
         Below are the default instrument assignments for the students in this
         class. You can change their defaults below, or change their instrument
-        only for a specific assignment on an assignment's edit page.
+        only for a specific assignment on an assignment&apos;s edit page.
       </p>
       <p>Changes made below will be automatically saved.</p>
       <Form>

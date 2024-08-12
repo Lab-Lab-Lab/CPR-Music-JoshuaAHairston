@@ -1,12 +1,11 @@
-import { useRouter } from "next/router";
-import { getStudentAssignments, mutateAssignmentInstrument } from "../../api";
-import { Card, ListGroup, ListGroupItem, Spinner } from "react-bootstrap";
-import { useQuery } from "react-query";
-import Link from "next/link";
-import SubmissionsStatusBadge from "../submissionStatusBadge";
-import { assnToContent, assnToKey } from "./navActivityPicker";
-import InstrumentSelector from "../instrumentSelector"
-
+import { useRouter } from 'next/router';
+import { Card, ListGroup, ListGroupItem, Spinner } from 'react-bootstrap';
+import { useQuery } from 'react-query';
+import Link from 'next/link';
+import { getStudentAssignments, mutateAssignmentInstrument } from '../../api';
+import SubmissionsStatusBadge from '../submissionStatusBadge';
+import { assnToContent, assnToKey } from './navActivityPicker';
+import InstrumentSelector from '../instrumentSelector';
 
 function PieceAssignments({ piece, canEditInstruments }) {
   const router = useRouter();
@@ -18,64 +17,68 @@ function PieceAssignments({ piece, canEditInstruments }) {
     error: assignmentsError,
     data: assignments,
   } = useQuery(['assignments', slug], getStudentAssignments(slug), {
-    enabled: !!slug, staleTime: 5 * 60 * 1000
+    enabled: !!slug,
+    staleTime: 5 * 60 * 1000,
   });
 
   const updateInstrument = (newInstrument) => {
     const pieceId = assignments[piece][0].piece_id;
     mutateAssignmentInstrument(slug, pieceId, newInstrument);
-  }
-
+  };
 
   if (isLoading) {
-    return <Spinner
-      as="span"
-      animation="border"
-      size="sm"
-      role="status"
-      aria-hidden="true"
-      variant="primary"
-    >
-      <span className="visually-hidden">Loading...</span>
-    </Spinner>
+    return (
+      <Spinner
+        as="span"
+        animation="border"
+        size="sm"
+        role="status"
+        aria-hidden="true"
+        variant="primary"
+      >
+        <span className="visually-hidden">Loading...</span>
+      </Spinner>
+    );
   }
   if (!slug || assignmentsError || !assignments || !assignments[piece]) {
     if (assignmentsError) {
-      console.error(assignmentsError)
+      console.error(assignmentsError);
     }
-    return <p>You have no assignments for this piece at this time.</p>
+    return <p>You have no assignments for this piece at this time.</p>;
   }
 
-  return <Card className="student-piece-activity-group">
-    <Card.Header className="fw-bold">
-      {assignments[piece][0].piece_name}
-      {canEditInstruments && (<InstrumentSelector
-        defaultInstrument={assignments[piece][0].instrument}
-        onChange={updateInstrument}
-      />)}
-    </Card.Header>
-    <ListGroup>
-      {assignments[piece]
-        .map((assignment) => (
+  return (
+    <Card className="student-piece-activity-group">
+      <Card.Header className="fw-bold">
+        {assignments[piece][0].piece_name}
+        {canEditInstruments && (
+          <InstrumentSelector
+            defaultInstrument={assignments[piece][0].instrument}
+            onChange={updateInstrument}
+          />
+        )}
+      </Card.Header>
+      <ListGroup>
+        {assignments[piece].map((assignment) => (
           <ListGroupItem
             key={`assn-${assignment.id}`}
             className="d-flex justify-content-between"
           >
             <Link
-              passHref legacyBehavior
-              href={`/courses/${slug}/${assignment.piece_slug
-                }/${assnToKey(assignment, 'debug str this is from pieceAssignments')}`}
+              passHref
+              legacyBehavior
+              href={`/courses/${slug}/${
+                assignment.piece_slug
+              }/${assnToKey(assignment, 'debug str this is from pieceAssignments')}`}
             >
               <a>{assnToContent(assignment)}</a>
             </Link>
             <SubmissionsStatusBadge assn={assignment} />
           </ListGroupItem>
         ))}
-    </ListGroup>
-  </Card>
-
+      </ListGroup>
+    </Card>
+  );
 }
 
-export {
-  PieceAssignments,
-}
+export { PieceAssignments };

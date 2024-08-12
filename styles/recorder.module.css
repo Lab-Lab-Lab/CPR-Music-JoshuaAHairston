@@ -1,0 +1,40 @@
+.slider{
+    appearance: none;
+    width: 200px;
+    height: 10px;
+    background-color: purple;
+    border-radius: 12px;
+    padding: 0;
+    --volumePercent: 100%;
+    background: linear-gradient(90deg, rgb(4, 255, 0) var(--volumePercent), gray 0%);
+}
+
+.slider::-webkit-slider-thumb{
+    appearance: none;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background-color: black;
+    cursor: pointer;
+}
+
+.slider::-moz-range-thumb{
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background-color: black;
+    cursor: pointer;
+}
+
+.waveContainer ::part(cursor){
+    height: 150px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+
+@media screen and (max-width: 600px) {
+    .slider{
+        width: 100px;
+    }
+}

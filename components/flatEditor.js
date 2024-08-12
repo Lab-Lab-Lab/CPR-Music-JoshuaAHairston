@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Col from 'react-bootstrap/Col';
 import Row from 'react-bootstrap/Row';
 import Embed from 'flat-embed';
+import { Button } from 'react-bootstrap';
 import {
   pitchesToRests,
   trimScore,
@@ -11,9 +12,8 @@ import {
   keyFromScoreJSON,
   getChordScaleInKey,
   colorNotes,
-  colorMeasures
+  colorMeasures,
 } from '../lib/flat';
-import { Button } from 'react-bootstrap';
 import { correctMeasure, correctScore } from '../lib/variations';
 
 const validateScore = (proposedScore, permittedPitches) => {
@@ -23,7 +23,7 @@ const validateScore = (proposedScore, permittedPitches) => {
       measure.note.forEach((note, k) => {
         if (note.pitch && !permittedPitches.includes(note.pitch.step)) {
           result.ok = false;
-          result.errors.push({ note, part: i, measure: j, note: k });
+          result.errors.push({ part: i, measure: j, note: k });
         }
       });
     });
@@ -34,7 +34,7 @@ const validateScore = (proposedScore, permittedPitches) => {
 function FlatEditor({
   edit = false,
   height,
-  width='100%',
+  width = '100%',
   score = {
     // scoreId: '61e09029dffcd50014571a80',
     // sharingKey:
@@ -54,9 +54,8 @@ function FlatEditor({
   slice,
   sliceIdx,
   debugMsg,
-  selectedMeasure
+  selectedMeasure,
 }) {
-
   function onFlatEditorError(e) {
     if (debugMsg) {
       console.error('debugMsg', debugMsg);
@@ -73,11 +72,11 @@ function FlatEditor({
   // *FIX* Need to get rid of arrow, make it a normal function as we did with keyFromScoreJSON, and getChordScaleInKey below.
   const embedTransposed = (
     bucket,
-    embed,
+    embedding,
     // templt,
     keySig,
     instrName,
-    octaveShift
+    octaveShift,
   ) => {
     const template = JSON.parse(
       JSON.stringify({
@@ -136,14 +135,14 @@ function FlatEditor({
             },
           ],
         },
-      })
+      }),
     );
     // change the notes in the score from whatever they are in tonic and eb to what we're given
     const scorePart =
       template?.['score-partwise']?.['part-list']?.['score-part']?.[0];
-    scorePart['part-name'] = instrName; //embed.instrumentName;
-    scorePart['part-abbreviation'] = instrName; //embed.instrumentAbbreviation;
-    scorePart['score-instrument']['instrument-name'] = instrName; //embed.instrumentName;
+    scorePart['part-name'] = instrName;
+    scorePart['part-abbreviation'] = instrName;
+    scorePart['score-instrument']['instrument-name'] = instrName;
 
     // start from bucket, create the notes, add them to measure
     template['score-partwise'].part[0].measure[0].note = bucket.map(
@@ -160,27 +159,31 @@ function FlatEditor({
           note.pitch.alter = alter;
         }
         return note;
-      }
+      },
     );
 
     // change the key signature in the score from whatever it is in tonic and eb to what we're given
     template?.['score-partwise']?.part?.[0]?.measure?.[0]?.attributes?.forEach(
       (element) => {
         if (element.key) {
-          //FIXME
+          // FIXME
+          // eslint-disable-next-line no-param-reassign
           element.key.fifths = keySig.keyAsJSON.fifths;
         }
         if (element.clef) {
-          //FIXME
+          // FIXME
+          // eslint-disable-next-line no-param-reassign
           element.clef = keySig.clef;
         }
-      }
+      },
     );
 
     if (octaveShift !== 0) {
       template?.[
         'score-partwise'
       ]?.part?.[0]?.measure?.[0]?.attributes?.forEach((element) => {
+        // FIXME
+        // eslint-disable-next-line no-param-reassign
         element.transpose = {
           chromatic: '0',
           'octave-change': `${octaveShift}`,
@@ -188,9 +191,10 @@ function FlatEditor({
       });
     }
 
-    const resultTransposed = embed.ready().then(() => {
-      return embed.loadJSON(template).catch(onFlatEditorError);
-    }).catch(onFlatEditorError);
+    const resultTransposed = embedding
+      .ready()
+      .then(() => embedding.loadJSON(template).catch(onFlatEditorError))
+      .catch(onFlatEditorError);
     return resultTransposed;
   };
 
@@ -242,7 +246,7 @@ function FlatEditor({
 
     const allParams = {
       height: `${computedHeight}`,
-      width: width,
+      width,
       embedParams,
     };
     setEmbed(new Embed(editorRef.current, allParams));
@@ -269,7 +273,7 @@ function FlatEditor({
               result = trimScore(result, trim);
             }
             if (slice) {
-              result = sliceScore(result, slice)
+              result = sliceScore(result, slice);
             } // FIXME: should slice and sliceIdx be mutually exclusive?
             if (sliceIdx !== undefined) {
               const [colorStart, colorStop] = nthSliceIdxs(result, sliceIdx);
@@ -277,90 +281,154 @@ function FlatEditor({
               if (colors) {
                 result['score-partwise'].part[0].measure = colorMeasures(
                   result['score-partwise'].part[0].measure,
-                  colors.slice(colorStart, colorStop)
+                  colors.slice(colorStart, colorStop),
                 );
               }
-            }
-            else if (colors) {
+            } else if (colors) {
               result['score-partwise'].part[0].measure = colorMeasures(
                 result['score-partwise'].part[0].measure,
-                colors
+                colors,
               );
             }
             return (
               // if a user adds a note that is black or does not have a color assigned to it, then we apply the color from the chord scale pattern to match.
               score.scoreId === 'blank' &&
-              embed.loadJSON(result).then(() => {
-                embed.off('cursorPosition');
-                embed.on('cursorPosition', (ev) => {
-                  // FIXME probably we need to debounce this event. when the paste has succeeded, don't notice that resulting change of cursor and try to do this again.
-                  // selectedMeasure
-                  if (json.current && selectedMeasure && selectedMeasure.current && JSON.stringify(selectedMeasure.current)!== '{}' && json.current !== '{}') {
-                    const scoreData = JSON.parse(json.current);
-                    const correctedSelection = correctMeasure(JSON.parse(JSON.stringify(selectedMeasure.current)));
-                    if (Object.hasOwn(scoreData['score-partwise'].part[0].measure[ev.measureIdx], 'harmony')){
-                      correctedSelection.harmony = scoreData['score-partwise'].part[0].measure[ev.measureIdx].harmony
-                    }
-                    scoreData['score-partwise'].part[0].measure[ev.measureIdx] =  correctedSelection
-                    //FIXME
-                    if (!Object.hasOwn(scoreData['score-partwise'].part[0].measure[ev.measureIdx], 'attributes')) {
-                      scoreData['score-partwise'].part[0].measure[ev.measureIdx].attributes = [{}];
-
-                    }
-                    if (!Object.hasOwn(scoreData['score-partwise'].part[0].measure[ev.measureIdx].attributes[0], '$adagio-location')) {
-                      scoreData['score-partwise'].part[0].measure[ev.measureIdx].attributes[0]['$adagio-location'] = {
-                        "timePos": 0,
-                        "dpq": 1
-                      }
-                    }
-                    if (!Object.hasOwn(scoreData['score-partwise'].part[0].measure[ev.measureIdx].attributes[0], '$adagio-time')) {
-                      scoreData['score-partwise'].part[0].measure[ev.measureIdx].attributes[0]['$adagio-time'] = {
-                        "beats": "4",
-                        "beat-type": "4"
-                      }
-                    }
-                    if (Object.hasOwn(scoreData['score-partwise'].part[0].measure[ev.measureIdx], 'barline')) {
-                      delete scoreData['score-partwise'].part[0].measure[ev.measureIdx].barline;
-                    }
-                    selectedMeasure.current = {};
-                    const toLoad = JSON.stringify(scoreData);
-                    embed.loadJSON(toLoad).catch(onFlatEditorError);
-                  }
-                });
-                embed.off('noteDetails');
-                embed.on('noteDetails', (info) => {
-                  embed.getJSON().then((jd) => {
-                    const jsonData = jd;
-                    //try to let the outer context know when this thing has data
-                    
+              embed
+                .loadJSON(result)
+                .then(() => {
+                  embed.off('cursorPosition');
+                  embed.on('cursorPosition', (ev) => {
+                    // FIXME probably we need to debounce this event. when the paste has succeeded, don't notice that resulting change of cursor and try to do this again.
+                    // selectedMeasure
                     if (
-                      colors &&
-                      jsonData['score-partwise'].part[0].measure.some((m) =>
-                        m.note.some((n) => !n.$color || n.$color === '#000000')
-                      )
+                      json.current &&
+                      selectedMeasure &&
+                      selectedMeasure.current &&
+                      JSON.stringify(selectedMeasure.current) !== '{}' &&
+                      json.current !== '{}'
                     ) {
-                      jsonData['score-partwise'].part[0].measure =
-                        colorMeasures(
-                          jsonData['score-partwise'].part[0].measure,
-                          colors
-                        );
-                      embed.getCursorPosition().then((position) =>
-                        embed.loadJSON(jsonData).then(() => {
-                          if (edit) {
-                            embed.setCursorPosition(position);
-                          }
-                        }).catch(onFlatEditorError)
+                      const scoreData = JSON.parse(json.current);
+                      const correctedSelection = correctMeasure(
+                        JSON.parse(JSON.stringify(selectedMeasure.current)),
                       );
-                    }
-                    const data = JSON.stringify(jsonData);
-                    // validateScore(jsonData, [])
-                    json.current = data;
-                    if (onUpdate) {
-                      onUpdate(data);
+                      if (
+                        Object.hasOwn(
+                          scoreData['score-partwise'].part[0].measure[
+                            ev.measureIdx
+                          ],
+                          'harmony',
+                        )
+                      ) {
+                        correctedSelection.harmony =
+                          scoreData['score-partwise'].part[0].measure[
+                            ev.measureIdx
+                          ].harmony;
+                      }
+                      scoreData['score-partwise'].part[0].measure[
+                        ev.measureIdx
+                      ] = correctedSelection;
+                      // FIXME
+                      if (
+                        !Object.hasOwn(
+                          scoreData['score-partwise'].part[0].measure[
+                            ev.measureIdx
+                          ],
+                          'attributes',
+                        )
+                      ) {
+                        scoreData['score-partwise'].part[0].measure[
+                          ev.measureIdx
+                        ].attributes = [{}];
+                      }
+                      if (
+                        !Object.hasOwn(
+                          scoreData['score-partwise'].part[0].measure[
+                            ev.measureIdx
+                          ].attributes[0],
+                          '$adagio-location',
+                        )
+                      ) {
+                        scoreData['score-partwise'].part[0].measure[
+                          ev.measureIdx
+                        ].attributes[0]['$adagio-location'] = {
+                          timePos: 0,
+                          dpq: 1,
+                        };
+                      }
+                      if (
+                        !Object.hasOwn(
+                          scoreData['score-partwise'].part[0].measure[
+                            ev.measureIdx
+                          ].attributes[0],
+                          '$adagio-time',
+                        )
+                      ) {
+                        scoreData['score-partwise'].part[0].measure[
+                          ev.measureIdx
+                        ].attributes[0]['$adagio-time'] = {
+                          beats: '4',
+                          'beat-type': '4',
+                        };
+                      }
+                      if (
+                        Object.hasOwn(
+                          scoreData['score-partwise'].part[0].measure[
+                            ev.measureIdx
+                          ],
+                          'barline',
+                        )
+                      ) {
+                        delete scoreData['score-partwise'].part[0].measure[
+                          ev.measureIdx
+                        ].barline;
+                      }
+                      // FIXME
+                      // eslint-disable-next-line no-param-reassign
+                      selectedMeasure.current = {};
+                      const toLoad = JSON.stringify(scoreData);
+                      embed.loadJSON(toLoad).catch(onFlatEditorError);
                     }
                   });
-                });
-              }).catch(onFlatEditorError)
+                  embed.off('noteDetails');
+                  embed.on('noteDetails', (info) => {
+                    embed.getJSON().then((jd) => {
+                      const jsonData = jd;
+                      // try to let the outer context know when this thing has data
+
+                      if (
+                        colors &&
+                        jsonData['score-partwise'].part[0].measure.some((m) =>
+                          m.note.some(
+                            (n) => !n.$color || n.$color === '#000000',
+                          ),
+                        )
+                      ) {
+                        jsonData['score-partwise'].part[0].measure =
+                          colorMeasures(
+                            jsonData['score-partwise'].part[0].measure,
+                            colors,
+                          );
+                        embed.getCursorPosition().then((position) =>
+                          embed
+                            .loadJSON(jsonData)
+                            .then(() => {
+                              if (edit) {
+                                embed.setCursorPosition(position);
+                              }
+                            })
+                            .catch(onFlatEditorError),
+                        );
+                      }
+                      const data = JSON.stringify(jsonData);
+                      // validateScore(jsonData, [])
+                      json.current = data;
+                      if (onUpdate) {
+                        onUpdate(data);
+                      }
+                    });
+                  });
+                })
+                .catch(onFlatEditorError)
             );
           }
           return embed;
@@ -374,31 +442,39 @@ function FlatEditor({
                 embed
                   .getJSON()
                   .then(
-                    (jsonData) => giveJSON && giveJSON(JSON.stringify(jsonData))
+                    (jsonData) =>
+                      giveJSON && giveJSON(JSON.stringify(jsonData)),
                   );
                 setRefId(score.scoreId);
               })
               .catch((e) => {
-                
                 if (e && e.message) {
                   e.message = `flat error: ${e?.message}, not loaded from scoreId, score: ${JSON.stringify(score)}, orig: ${orig}, colors: ${colors}`;
-                  if (debugMsg){
+                  if (debugMsg) {
                     e.message = `${e?.message}, debugMsg: ${debugMsg}`;
                   }
-                } else if(debugMsg) {
+                } else if (debugMsg) {
                   console.error('debugMsg', debugMsg);
-                  if (score){console.error('score', score);}
-                  if (orig){console.error('orig', orig);}
-                  if (colors){console.error('colors', colors);}
+                  if (score) {
+                    console.error('score', score);
+                  }
+                  if (orig) {
+                    console.error('orig', orig);
+                  }
+                  if (colors) {
+                    console.error('colors', colors);
+                  }
                 }
                 console.error('score not loaded from scoreId');
                 console.error('score', score);
-                if (loadParams) { console.error('loadParams', loadParams)}
+                if (loadParams) {
+                  console.error('loadParams', loadParams);
+                }
                 console.error('orig', orig);
                 console.error('colors', colors);
                 // console.error(e);
                 throw e;
-              })
+              }),
         )
         .catch(onFlatEditorError);
     } else if (scoreJSON && embed) {
@@ -431,20 +507,27 @@ function FlatEditor({
   }, [score, scoreJSON, chordScaleBucket, embed]);
 
   return (
-    <>
-      <Row>
-        <Col>
-          <div ref={editorRef} />
-          { edit && onSubmit && <Button onClick={()=>{
-            if (embed) {
-              embed.getJSON().then((jsonData) => {
-                onSubmit(jsonData);
-              }).catch(onFlatEditorError);
-            }
-          }}>Done Composing</Button>}
-        </Col>
-      </Row>
-    </>
+    <Row>
+      <Col>
+        <div ref={editorRef} />
+        {edit && onSubmit && (
+          <Button
+            onClick={() => {
+              if (embed) {
+                embed
+                  .getJSON()
+                  .then((jsonData) => {
+                    onSubmit(jsonData);
+                  })
+                  .catch(onFlatEditorError);
+              }
+            }}
+          >
+            Done Composing
+          </Button>
+        )}
+      </Col>
+    </Row>
   );
 }
 

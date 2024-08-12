@@ -23,12 +23,14 @@ export default function AddEditCourse() {
     isLoading,
     error,
     data: enrollments,
-  } = useQuery('enrollments', getEnrollments, {staleTime: 5 * 60 * 1000});
+  } = useQuery('enrollments', getEnrollments, { staleTime: 5 * 60 * 1000 });
   // const router = useRouter();
   // const { slug } = router.query;
-  
-  const currentEnrollment = slug &&
-    enrollments ? enrollments.filter((elem) => elem.course.slug === slug)[0] : null;
+
+  const currentEnrollment =
+    slug && enrollments
+      ? enrollments.filter((elem) => elem.course.slug === slug)[0]
+      : null;
 
   // const selectedEnrollment = enrollments.items.filter((enrollment) => enrollment.course.slug === slug)[0];
   const selectedCourse = currentEnrollment?.course;
@@ -52,10 +54,10 @@ export default function AddEditCourse() {
 
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState(
-    today.toISOString().substring(0, 10)
+    today.toISOString().substring(0, 10),
   );
   const [endDate, setEndDate] = useState(
-    sampleEnd.toISOString().substring(0, 10)
+    sampleEnd.toISOString().substring(0, 10),
   );
 
   useEffect(() => {
@@ -64,7 +66,7 @@ export default function AddEditCourse() {
       setStartDate(selectedCourse.start_date);
       setEndDate(selectedCourse.end_date);
     }
-  }, [slug, selectedCourse])
+  }, [slug, selectedCourse]);
 
   const queryClient = useQueryClient();
   const courseMutation = useMutation(mutateCourse(slug), {
@@ -78,7 +80,7 @@ export default function AddEditCourse() {
         if (old) {
           return [
             ...old.map((enrollment) =>
-              enrollment.id === updatedCourse.id ? updatedCourse : enrollment
+              enrollment.id === updatedCourse.id ? updatedCourse : enrollment,
             ),
           ];
         }
@@ -137,7 +139,7 @@ export default function AddEditCourse() {
         endDate,
         token: userInfo.token,
         userId: userInfo.id,
-      })
+      }),
     ).then((newSlug) => {
       router.push(`/courses/${newSlug}/edit`);
     });

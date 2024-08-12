@@ -49,7 +49,7 @@ function MergingScore({
     }
   }, [scores, height, instrumentName, giveJSON]);
 
-  return <div ref={editorRef} />
+  return <div ref={editorRef} />;
 }
 
 export default MergingScore;

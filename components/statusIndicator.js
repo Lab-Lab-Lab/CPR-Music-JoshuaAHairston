@@ -3,7 +3,7 @@ import { FaCheck, FaSpinner, FaTimesCircle } from 'react-icons/fa';
 import { useSelector } from 'react-redux';
 import { UploadStatusEnum } from '../types';
 
-export default function StatusIndicator({statusId}) {
+export default function StatusIndicator({ statusId }) {
   const { submissions } = useSelector((state) => state.submission);
 
   const status = submissions?.[statusId];

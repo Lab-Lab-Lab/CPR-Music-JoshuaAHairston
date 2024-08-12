@@ -15,7 +15,7 @@ const FlatEditor = dynamic(
   () => import('../../../../../../components/flatEditor'),
   {
     ssr: false,
-  }
+  },
 );
 
 export default function PerformMelody() {
@@ -31,32 +31,29 @@ export default function PerformMelody() {
     }
   }, [slug, userInfo.token]);
   const { items: activities, loaded: loadedActivities } = useSelector(
-    (state) => state.activities
+    (state) => state.activities,
   );
 
-  const assignment = useSelector(
-    (state) => state.selectedAssignment
-  );
+  const assignment = useSelector((state) => state.selectedAssignment);
   useEffect(() => {
     if (loadedActivities) {
       let comparablePartType = partType;
       if (comparablePartType.startsWith('Melody')) {
-        comparablePartType = comparablePartType.substring(0, 'Melody'.length)
+        comparablePartType = comparablePartType.substring(0, 'Melody'.length);
       } else if (comparablePartType.startsWith('Bassline')) {
-        comparablePartType = comparablePartType.substring(0, 'Bassline'.length)
+        comparablePartType = comparablePartType.substring(0, 'Bassline'.length);
       }
       const assignmentId = activities[piece].filter(
         (assn) =>
-          {
-            return assn.piece_slug === piece &&
+          assn.piece_slug === piece &&
           assn.part_type === comparablePartType &&
-          assn.activity_type_category === actCategory}
-      )?.[0]?.id
+          assn.activity_type_category === actCategory,
+      )?.[0]?.id;
       dispatch(
         fetchSingleStudentAssignment({
           slug,
           assignmentId,
-        })
+        }),
       );
     }
   }, [slug, loadedActivities, activities, partType]);
@@ -65,7 +62,7 @@ export default function PerformMelody() {
     const score = assignment?.part?.transpositions?.filter(
       (partTransposition) =>
         partTransposition.transposition.name ===
-        assignment?.instrument?.transposition
+        assignment?.instrument?.transposition,
     )?.[0]?.flatio;
     if (score) {
       setParsedScore(JSON.parse(score));
@@ -79,7 +76,7 @@ export default function PerformMelody() {
       {parsedScore === undefined ? (
         <Alert variant="danger">
           <Alert.Heading>
-            We don't have a score for this piece for your instrument.
+            We don&apos;t have a score for this piece for your instrument.
           </Alert.Heading>
           <p>Please ask your teacher to contact us.</p>
           <p>
@@ -96,7 +93,10 @@ export default function PerformMelody() {
             <dl>
               <dt>Sample Recording</dt>
               <dd>
-                <audio controls src={assignment.part.sample_audio} />
+                {
+                  // eslint-disable-next-line jsx-a11y/media-has-caption
+                  <audio controls src={assignment.part.sample_audio} />
+                }
               </dd>
             </dl>
           )}
@@ -113,7 +113,7 @@ export default function PerformMelody() {
                 assignmentId: assignment.id,
                 audio,
                 submissionId,
-              })
+              }),
             )
           }
         />

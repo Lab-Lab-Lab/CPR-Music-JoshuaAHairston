@@ -3,15 +3,14 @@ import Col from 'react-bootstrap/Col';
 import Row from 'react-bootstrap/Row';
 import Embed from 'flat-embed';
 
-
 function FlatMelodyViewer({
-  height=300,
-  width='100%',
+  height = 300,
+  width = '100%',
   score,
   onLoad,
-  debugMsg
+  debugMsg,
 }) {
-  //const [embed, setEmbed] = useState();
+  // const [embed, setEmbed] = useState();
   const editorRef = React.createRef();
 
   const embedParams = {
@@ -29,52 +28,51 @@ function FlatMelodyViewer({
   };
 
   const allParams = {
-      height: `${height}`,
-      width: width,
-      embedParams,
+    height: `${height}`,
+    width,
+    embedParams,
   };
 
-   
   useEffect(() => {
-    if (!editorRef.current) return; 
+    if (!editorRef.current) return;
     const loadParams = {
       score: score.scoreId,
     };
     if (score.sharingKey) {
       loadParams.sharingKey = score.sharingKey;
     }
-    const embed = new Embed(editorRef.current, allParams)
+    const embed = new Embed(editorRef.current, allParams);
 
-    embed.ready()
+    embed
+      .ready()
       .then(() => embed.loadFlatScore(loadParams))
       .then(() => embed.getJSON())
       .then((jsonData) => onLoad && onLoad(JSON.stringify(jsonData)))
       .catch((e) => {
         if (e && e.message) {
           e.message = `flat error: ${e?.message}, not loaded from scoreId, score: ${JSON.stringify(score)}`;
-          if (debugMsg){
+          if (debugMsg) {
             e.message = `${e?.message}, debugMsg: ${debugMsg}`;
           }
-        } else if(debugMsg) {
+        } else if (debugMsg) {
           console.error('debugMsg', debugMsg);
-          if (score){console.error('score', score);}
+          if (score) {
+            console.error('score', score);
+          }
         }
         console.error('score not loaded from scoreId');
         console.error('score', score);
         throw e;
-      })
-    }, [editorRef.current]);
+      });
+  }, [editorRef.current]);
 
   return (
-    <>
-      <Row>
-        <Col>
-          <div ref={editorRef} />
-        </Col>
-      </Row>
-    </>
+    <Row>
+      <Col>
+        <div ref={editorRef} />
+      </Col>
+    </Row>
   );
 }
 
-
-export default React.memo(FlatMelodyViewer)
+export default React.memo(FlatMelodyViewer);

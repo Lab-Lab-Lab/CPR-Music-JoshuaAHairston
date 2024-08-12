@@ -15,25 +15,25 @@ export default function CreateAuralActivityPage() {
     isLoading: loaded,
     error: assignmentsError,
     data: assignments,
-  } = useQuery(['assignments',slug], getStudentAssignments(slug), {
-    enabled: !!slug, staleTime: 5*60*1000
+  } = useQuery(['assignments', slug], getStudentAssignments(slug), {
+    enabled: !!slug,
+    staleTime: 5 * 60 * 1000,
   });
   const currentAssignment =
     assignments &&
     Object.values(assignments)
       .reduce((prev, current) => [...prev, ...current], [])
-      .filter((assn) => {
-        return (
+      .filter(
+        (assn) =>
           assn.piece_slug === piece &&
-          assn.activity_type_category === actCategory
-        );
-      })?.[0];
+          assn.activity_type_category === actCategory,
+      )?.[0];
 
   // TODO: branch on actCategory
 
   return currentAssignment ? (
     <StudentAssignment assignment={currentAssignment}>
-      <CreativityAuralActivity/>
+      <CreativityAuralActivity />
     </StudentAssignment>
   ) : (
     <Spinner

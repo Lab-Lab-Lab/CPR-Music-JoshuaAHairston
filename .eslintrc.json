@@ -1,44 +1,55 @@
 {
-    "env": {
-        "browser": true,
-        "es2021": true
+  "env": {
+    "browser": true,
+    "es2021": true
+  },
+  "extends": [
+    "plugin:react/recommended",
+    "airbnb",
+    "prettier"
+  ],
+  "parserOptions": {
+    "ecmaFeatures": {
+      "jsx": true
     },
-    "extends": [
-        "plugin:react/recommended",
-        "airbnb",
-        "prettier"
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "plugins": [
+    "react",
+    "eslint-plugin-prettier"
+  ],
+  "rules": {
+    "react/jsx-filename-extension": [
+      1,
+      {
+        "extensions": [
+          ".js",
+          ".jsx"
+        ]
+      }
     ],
-    "parserOptions": {
-        "ecmaFeatures": {
-            "jsx": true
-        },
-        "ecmaVersion": "latest",
-        "sourceType": "module"
-    },
-    "plugins": [
-        "react"
+    "no-console": "off",
+    "no-unused-vars": "off",
+    "react/react-in-jsx-scope": "off",
+    "import/prefer-default-export": "off",
+    "indent": [
+      "off",
+      0
     ],
-    "rules": {
-        "react/jsx-filename-extension": [
-            1,
-            {
-                "extensions": [
-                    ".js",
-                    ".jsx"
-                ]
-            }
-        ],
-        "no-console": "off",
-        "no-unused-vars": "off",
-        "react/react-in-jsx-scope": "off",
-        "indent": [
-            "warn",
-            2
-        ],
-        "react/prop-types": "off",
-        "default-param-last": "off",
-        "default-case": "off",
-        "no-case-declarations": "off",
-        "jsx-a11y/anchor-is-valid": "off"
-    }
+    "react/prop-types": "off",
+    "default-param-last": "off",
+    "default-case": "off",
+    "no-case-declarations": "off",
+    "jsx-a11y/anchor-is-valid": "off",
+    "prettier/prettier": [
+      "error",
+      {
+        "singleQuote": true,
+        "tabWidth": 2,
+        "semi": true,
+        "endOfLine": "lf"
+      }
+    ]
+  }
 }

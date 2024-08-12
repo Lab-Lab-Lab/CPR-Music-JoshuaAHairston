@@ -31,8 +31,10 @@ export default NextAuth({
         password: { label: 'Password', type: 'password' },
       },
       async authorize({ csrfToken, username, password }, req) {
-        console.log('\n\n\n=================\nAUTHORIZE\n=================\n\n\n')
-        console.log('req:', req)
+        console.log(
+          '\n\n\n=================\nAUTHORIZE\n=================\n\n\n',
+        );
+        console.log('req:', req);
         // You need to provide your own logic here that takes the credentials
         // submitted and returns either a object representing a user or value
         // that is false/null if the credentials are invalid.
@@ -40,7 +42,7 @@ export default NextAuth({
         // You can also use the `req` object to obtain additional parameters
         // (i.e., the request IP address)
 
-        console.log('about to post to ', config[backend].url)
+        console.log('about to post to ', config[backend].url);
         const res = await fetch(config[backend].url, {
           method: 'POST',
           body: JSON.stringify({
@@ -54,7 +56,7 @@ export default NextAuth({
         // If no error and we have user data, return it
         if (res.ok && !userToken.error) {
           return {
-            username: username,
+            username,
             djangoToken: userToken.token,
           };
         }
@@ -109,14 +111,17 @@ export default NextAuth({
   // https://next-auth.js.org/configuration/callbacks
   callbacks: {
     async signIn({ user, account, profile, email, credentials }) {
-      console.log('\n\n\n=================\ncallbacks::signIn\n=================\n\n\n')
+      console.log(
+        '\n\n\n=================\ncallbacks::signIn\n=================\n\n\n',
+      );
       return user !== null;
     },
     async redirect({ url, baseUrl }) {
-      
-      console.log('\n\n\n=================\ncallbacks::redirect\n=================\n\n\n')
+      console.log(
+        '\n\n\n=================\ncallbacks::redirect\n=================\n\n\n',
+      );
       let returnVal = url;
-      
+
       // Allows relative callback URLs
       if (url.startsWith('/')) {
         const absUrl = new URL(url, baseUrl).toString();
@@ -126,16 +131,21 @@ export default NextAuth({
       return returnVal;
     },
     async session({ session, token, user }) {
-      console.log('\n\n\n=================\ncallbacks::session\n=================\n\n\n')
+      console.log(
+        '\n\n\n=================\ncallbacks::session\n=================\n\n\n',
+      );
       return { ...session, djangoToken: token.djangoToken };
     },
     async jwt({ token, user, account, profile, isNewUser }) {
-      console.log('\n\n\n=================\ncallbacks::jwt\n=================\n\n\n')
+      console.log(
+        '\n\n\n=================\ncallbacks::jwt\n=================\n\n\n',
+      );
+      const updatedToken = token;
       if (user) {
-        token.name = user.username;
-        token.djangoToken = user.djangoToken;
+        updatedToken.name = user.username;
+        updatedToken.djangoToken = user.djangoToken;
       }
-      return token;
+      return updatedToken;
     },
   },
 
@@ -143,27 +153,39 @@ export default NextAuth({
   // https://next-auth.js.org/configuration/events
   events: {
     signIn: async (message) => {
-      console.log('\n\n\n=================\nevents::signIn\n=================\n\n\n')
+      console.log(
+        '\n\n\n=================\nevents::signIn\n=================\n\n\n',
+      );
       /* on successful sign in */
     },
     signOut: async (message) => {
-      console.log('\n\n\n=================\nevents::signOut\n=================\n\n\n')
+      console.log(
+        '\n\n\n=================\nevents::signOut\n=================\n\n\n',
+      );
       /* on signout */
     },
     createUser: async (message) => {
-      console.log('\n\n\n=================\nevents::createUser\n=================\n\n\n')
+      console.log(
+        '\n\n\n=================\nevents::createUser\n=================\n\n\n',
+      );
       /* user created */
     },
     updateUser: async (message) => {
-      console.log('\n\n\n=================\nevents::updateUser\n=================\n\n\n')
+      console.log(
+        '\n\n\n=================\nevents::updateUser\n=================\n\n\n',
+      );
       /* user updated */
     },
     linkAccount: async (message) => {
-      console.log('\n\n\n=================\nevents::linkAccount\n=================\n\n\n')
+      console.log(
+        '\n\n\n=================\nevents::linkAccount\n=================\n\n\n',
+      );
       /* account linked to a user */
     },
     session: async (message) => {
-      console.log('\n\n\n=================\nevents::session\n=================\n\n\n')
+      console.log(
+        '\n\n\n=================\nevents::session\n=================\n\n\n',
+      );
       /* session is active */
     },
   },

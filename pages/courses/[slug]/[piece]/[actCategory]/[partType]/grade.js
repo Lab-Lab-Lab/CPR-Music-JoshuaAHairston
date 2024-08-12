@@ -1,32 +1,43 @@
-import { useRouter } from "next/router";
+import { useRouter } from 'next/router';
 import { useQuery } from 'react-query';
+import { Spinner } from 'react-bootstrap';
 import { getRecentSubmissions } from '../../../../../../api';
-import Layout from "../../../../../../components/layout";
-import GradePerform from "../../../../../../components/teacher/grade/perform";
-import { Spinner } from "react-bootstrap";
+import Layout from '../../../../../../components/layout';
+import GradePerform from '../../../../../../components/teacher/grade/perform';
 
 export default function GradeActivity() {
   const router = useRouter();
   const { slug, piece, partType } = router.query;
 
   // TODO: should't render this thing if not a teacher
-  const { isLoading, error, data: submissions } = useQuery(['gradeableSubmissions', slug, piece, partType], getRecentSubmissions({ slug, piece, partType }), { enabled: !!slug && !!piece && !!partType })
+  const {
+    isLoading,
+    error,
+    data: submissions,
+  } = useQuery(
+    ['gradeableSubmissions', slug, piece, partType],
+    getRecentSubmissions({ slug, piece, partType }),
+    { enabled: !!slug && !!piece && !!partType },
+  );
 
-  if (error) return `An error has occurred: ${error.message}`
+  if (error) return `An error has occurred: ${error.message}`;
 
-  return <Layout>
-    { !slug || !piece || !partType || isLoading || !submissions ? 
-      <Spinner
-        as="span"
-        animation="border"
-        size="sm"
-        role="status"
-        aria-hidden="true"
-        variant="primary"
-      >
-        <span className="visually-hidden">Loading...</span>
-      </Spinner> :
-      <GradePerform submissions={submissions} />
-    }
-  </Layout>
+  return (
+    <Layout>
+      {!slug || !piece || !partType || isLoading || !submissions ? (
+        <Spinner
+          as="span"
+          animation="border"
+          size="sm"
+          role="status"
+          aria-hidden="true"
+          variant="primary"
+        >
+          <span className="visually-hidden">Loading...</span>
+        </Spinner>
+      ) : (
+        <GradePerform submissions={submissions} />
+      )}
+    </Layout>
+  );
 }

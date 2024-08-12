@@ -22,7 +22,7 @@ export default function RespondActivity() {
     }
   }, [slug, userInfo.token]);
   const { items: activities, loaded: loadedActivities } = useSelector(
-    (state) => state.activities
+    (state) => state.activities,
   );
   const assignmentId =
     loadedActivities &&
@@ -30,7 +30,8 @@ export default function RespondActivity() {
     activities?.[piece] &&
     activities?.[piece].filter(
       (assn) =>
-        assn.piece_slug === piece && assn.activity_type_category === actCategory
+        assn.piece_slug === piece &&
+        assn.activity_type_category === actCategory,
     )?.[0]?.id;
   useEffect(() => {
     if (loadedActivities && assignmentId) {
@@ -38,7 +39,7 @@ export default function RespondActivity() {
         fetchSingleStudentAssignment({
           slug,
           assignmentId,
-        })
+        }),
       );
     }
   }, [slug, loadedActivities, activities]);
@@ -49,7 +50,7 @@ export default function RespondActivity() {
         slug,
         assignmentId,
         response: { r, t, e, reflection },
-      })
+      }),
     );
   };
   return (
@@ -66,7 +67,11 @@ export default function RespondActivity() {
       />
       <RTE submission={{ id: assignmentId }} submitAction={submitAction} />
       <h3>Rating Scales</h3>
-      <Accordion defaultActiveKey={["0", "1", "2"]} alwaysOpen className="cpr-create">
+      <Accordion
+        defaultActiveKey={['0', '1', '2']}
+        alwaysOpen
+        className="cpr-create"
+      >
         <Accordion.Item eventKey="0">
           <Accordion.Header>Rhythm</Accordion.Header>
           <Accordion.Body>

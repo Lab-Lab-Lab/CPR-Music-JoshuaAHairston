@@ -17,12 +17,12 @@ function UploadStudents() {
   const userInfo = useSelector((state) => state.currentUser);
 
   const { shouldInstrument = false } = useSelector(
-    (state) => state.enrollments
+    (state) => state.enrollments,
   );
 
   if (shouldInstrument && router.asPath.endsWith('/edit')) {
     router.push(router.asPath.replace('/edit', '/instruments'));
-    dispatch(didInstrument())
+    dispatch(didInstrument());
   }
 
   const uploadStudents = async (ev) => {
@@ -44,7 +44,7 @@ function UploadStudents() {
         body: formData,
         djangoToken: userInfo.token,
         courseSlug: slug,
-      })
+      }),
     );
     setLoading(false);
   };
@@ -65,7 +65,7 @@ function UploadStudents() {
         <a download href="/roster-for-musiccpr.csv">
           this example roster csv file
         </a>{' '}
-        in case it's easiest to just edit that.
+        in case it&apos;s easiest to just edit that.
         {/* Plese use{' '}
         <a target="_blank" rel="noopener noreferrer"
           href="https://docs.google.com/spreadsheets/d/1Z2yauf5xqv6P2fBUM-l-0UeCRp5BPsHwt3_lkysibbw/edit?usp=sharing">
@@ -88,8 +88,12 @@ function UploadStudents() {
             />
           </Col>
         </Form.Group>
-        <Button type="submit" disabled={loading} className={loading ? "btn btn-secondary" : "btn btn-primary"}>
-          {loading ? "Uploading..." : "Upload"}
+        <Button
+          type="submit"
+          disabled={loading}
+          className={loading ? 'btn btn-secondary' : 'btn btn-primary'}
+        >
+          {loading ? 'Uploading...' : 'Upload'}
         </Button>
       </Form>
     </div>

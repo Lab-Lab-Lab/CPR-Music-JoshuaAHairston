@@ -2,15 +2,13 @@ import React, { useEffect, useRef } from 'react';
 import Col from 'react-bootstrap/Col';
 import Row from 'react-bootstrap/Row';
 import Embed from 'flat-embed';
-import {
-  mwCreateVariations,
-} from '../lib/variations';
+import { mwCreateVariations } from '../lib/variations';
 
 function VariationsFromMotiveScore({
   height,
-  referenceScoreJSON, //original motive from student
+  referenceScoreJSON, // original motive from student
   // chordScaleBucket,
-  onSelect
+  onSelect,
 }) {
   const editorRef = React.createRef();
   const variations = useRef();
@@ -48,14 +46,16 @@ function VariationsFromMotiveScore({
         variations.current = mwCreateVariations(referenceScoreJSON);
         if (onSelect) {
           createdEmbed.off('cursorPosition');
-          createdEmbed.on('cursorPosition', (ev) =>{
-            onSelect(variations.current['score-partwise'].part[0].measure[ev.measureIdx]);
-          }) ;
-          
+          createdEmbed.on('cursorPosition', (ev) => {
+            onSelect(
+              variations.current['score-partwise'].part[0].measure[
+                ev.measureIdx
+              ],
+            );
+          });
         }
         createdEmbed.loadJSON(variations.current);
-        //TODO: save/set the measures array from this `variations` json obj
-
+        // TODO: save/set the measures array from this `variations` json obj
       });
     }
   }, [height, referenceScoreJSON]);

@@ -2,7 +2,6 @@
 import { signOut } from 'next-auth/react';
 import * as types from './types';
 
-
 // https://allover.twodee.org/remote-state/fetching-memories/
 function assertResponse(response) {
   if (response.status >= 200 && response.status < 300) {
@@ -39,73 +38,69 @@ export function retrieveEnrollments(djangoToken) {
 
 export function fetchEnrollments() {
   return (dispatch, getState) => {
-    const { currentUser: {token} } = getState();
+    const {
+      currentUser: { token },
+    } = getState();
     return token
       ? retrieveEnrollments(token)
-        .then((courses) => dispatch(gotEnrollments(courses)))
-        .catch((...rest) => {
-          console.log('catch rest');
-          console.log(rest);
-        })
+          .then((courses) => dispatch(gotEnrollments(courses)))
+          .catch((...rest) => {
+            console.log('catch rest');
+            console.log(rest);
+          })
       : null;
   };
 }
 
 export const newCourse =
-  ({
-    name,
-    startDate: start_date,
-    endDate: end_date,
-    slug = 'slug',
-    userId,
-  }) =>
-    async(dispatch, getState) => {
-      const {
-        currentUser: { token }
-      } = getState();
-      const params = {
-        name,
-        start_date,
-        end_date,
-        slug,
-        owner: userId,
-      };
-      const options = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Token ${token}`,
-        },
-        body: JSON.stringify(params),
-      };
-
-      const enrollOptions = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Token ${token}`,
-        },
-      };
-      var newSlug;
-      await fetch(`${process.env.NEXT_PUBLIC_BACKEND_HOST}/api/courses/`, options)
-        .then(assertResponse)
-        .then((response) => response.json())
-        .then((data) => {
-          const enrollParams = {
-            user: userId,
-            role: 1,
-            course: data.id,
-          };
-          newSlug = data.slug;
-          enrollOptions.body = JSON.stringify(enrollParams);
-          return fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_HOST}/api/enrollments/`,
-            enrollOptions
-          );
-        })
-        .then(() => dispatch(fetchEnrollments()));
-      return newSlug;
+  ({ name, startDate: start_date, endDate: end_date, slug = 'slug', userId }) =>
+  async (dispatch, getState) => {
+    const {
+      currentUser: { token },
+    } = getState();
+    const params = {
+      name,
+      start_date,
+      end_date,
+      slug,
+      owner: userId,
     };
+    const options = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Token ${token}`,
+      },
+      body: JSON.stringify(params),
+    };
+
+    const enrollOptions = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Token ${token}`,
+      },
+    };
+    let newSlug;
+    await fetch(`${process.env.NEXT_PUBLIC_BACKEND_HOST}/api/courses/`, options)
+      .then(assertResponse)
+      .then((response) => response.json())
+      .then((data) => {
+        const enrollParams = {
+          user: userId,
+          role: 1,
+          course: data.id,
+        };
+        newSlug = data.slug;
+        enrollOptions.body = JSON.stringify(enrollParams);
+        return fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_HOST}/api/enrollments/`,
+          enrollOptions,
+        );
+      })
+      .then(() => dispatch(fetchEnrollments()));
+    return newSlug;
+  };
 
 export function addedFromRoster(courseSlug, enrollments) {
   return {
@@ -129,17 +124,17 @@ export function fetchRoster({ courseSlug }) {
           Authorization: `Token ${token}`,
           'Content-Type': 'application/json',
         },
-      }
+      },
     )
       .then((response) => response.json())
-      .then((enrollments) => dispatch(gotRoster({enrollments, courseSlug})));
+      .then((enrollments) => dispatch(gotRoster({ enrollments, courseSlug })));
   };
 }
 
 export function uploadRoster({ body, courseSlug }) {
   return (dispatch, getState) => {
     const {
-      currentUser: { token }
+      currentUser: { token },
     } = getState();
     fetch(
       `${process.env.NEXT_PUBLIC_BACKEND_HOST}/api/courses/${courseSlug}/roster/`,
@@ -149,17 +144,15 @@ export function uploadRoster({ body, courseSlug }) {
         },
         method: 'POST',
         body,
-      }
+      },
     )
       .then(assertResponse)
       .then((response) => response.json())
       .then((res) => {
         dispatch(addedFromRoster(courseSlug, res));
       })
-      .then(() =>
-        dispatch(fetchRoster({ djangoToken: token, courseSlug }))
-      );
-  }
+      .then(() => dispatch(fetchRoster({ djangoToken: token, courseSlug })));
+  };
 }
 
 export function gotInstruments(instruments) {
@@ -182,15 +175,15 @@ export function fetchInstruments() {
     })
       .then(assertResponse)
       .then((response) => response.json())
-      .then((instruments) => 
+      .then((instruments) =>
         dispatch(
-          gotInstruments(instruments.sort((a, b) => (a.name < b.name ? -1 : 1)))
-        )
+          gotInstruments(
+            instruments.sort((a, b) => (a.name < b.name ? -1 : 1)),
+          ),
+        ),
       );
-  }
+  };
 }
-
-
 
 export function enrollmentUpdated({ enrollment, instrument }) {
   return {
@@ -209,10 +202,7 @@ export function setInstrumentActivity(enrollmentId, activityState) {
   };
 }
 
-export function updateEnrollmentInstrument({
-  enrollmentId,
-  instrument,
-}) {
+export function updateEnrollmentInstrument({ enrollmentId, instrument }) {
   return (dispatch, getState) => {
     const {
       currentUser: { token },
@@ -227,19 +217,19 @@ export function updateEnrollmentInstrument({
         },
         method: 'PATCH',
         body: JSON.stringify({ instrument: instrument.id }),
-      }
+      },
     )
       .then(assertResponse)
       .then((res) => res.json())
       .then((enrollment) => {
         dispatch(
-          setInstrumentActivity(enrollmentId, types.ActivityState.Success)
+          setInstrumentActivity(enrollmentId, types.ActivityState.Success),
         );
         dispatch(enrollmentUpdated({ enrollment, instrument }));
       })
       .catch(() => {
         dispatch(
-          setInstrumentActivity(enrollmentId, types.ActivityState.Erroneous)
+          setInstrumentActivity(enrollmentId, types.ActivityState.Erroneous),
         );
       });
   };
@@ -264,11 +254,11 @@ export function fetchStudentAssignments({ slug }) {
           Authorization: `Token ${token}`,
           'Content-Type': 'application/json',
         },
-      }
+      },
     )
       .then((response) => response.json())
       .then((assignments) => dispatch(gotAssignments(assignments)));
-  }
+  };
 }
 
 export function loggedOut() {
@@ -292,7 +282,7 @@ export function logoutUser() {
       .then(assertResponse)
       .then((res) => res.json())
       .then(loggedOut);
-  }
+  };
 }
 
 export function gotActivities({ activities, slug }) {
@@ -310,22 +300,25 @@ export function fetchActivities({ slug }) {
     const {
       currentUser: { token },
     } = getState();
-    return token && fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_HOST}/api/courses/${slug}/assignments/`,
-      {
-        headers: {
-          Authorization: `Token ${token}`,
-          'Content-Type': 'application/json',
+    return (
+      token &&
+      fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_HOST}/api/courses/${slug}/assignments/`,
+        {
+          headers: {
+            Authorization: `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
         },
-      }
-    )
-      .then(assertResponse)
-      .then((response) => response.json())
-      .then((activities) => dispatch(gotActivities({ activities, slug })))
-      .catch((e) => {
-        console.error('caught', e)
-      });
-  }
+      )
+        .then(assertResponse)
+        .then((response) => response.json())
+        .then((activities) => dispatch(gotActivities({ activities, slug })))
+        .catch((e) => {
+          console.error('caught', e);
+        })
+    );
+  };
 }
 
 export function gotPieces(pieces) {
@@ -351,7 +344,7 @@ export function fetchPieces() {
       .then((pieces) => {
         dispatch(gotPieces(pieces.sort((a, b) => (a.name < b.name ? -1 : 1))));
       });
-  }
+  };
 }
 
 export function assignedPiece({ piece, slug }) {
@@ -385,12 +378,12 @@ export function assignPiece({ slug, piece }) {
         method: 'POST',
         body: JSON.stringify({ piece_id: piece.id }),
         // body: data,
-      }
+      },
     )
       .then(assertResponse)
       .then((response) => response.json())
       .then((pieceResponse) => dispatch(assignedPiece({ piece, slug })));
-  }
+  };
 }
 
 export function setPieceChangeState({ piece, state }) {
@@ -409,7 +402,7 @@ export function unassignPiece({ piece, slug }) {
       setPieceChangeState({
         pieceId: piece.id,
         state: types.ActivityState.Active,
-      })
+      }),
     );
     // const data = new FormData();
     // data.append("piece_id", piece);
@@ -423,7 +416,7 @@ export function unassignPiece({ piece, slug }) {
         method: 'POST',
         body: JSON.stringify({ piece_id: piece.id }),
         // body: data,
-      }
+      },
     )
       .then(assertResponse)
       .then(() => dispatch(unassignedPiece({ piece, slug })))
@@ -432,15 +425,15 @@ export function unassignPiece({ piece, slug }) {
           setPieceChangeState({
             pieceId: piece.id,
             state: types.ActivityState.Success,
-          })
-        )
+          }),
+        ),
       )
       .catch((err) => {
         dispatch(
           setPieceChangeState({
             pieceId: piece.id,
             state: types.ActivityState.Erroneous,
-          })
+          }),
         );
       });
   };
@@ -482,7 +475,7 @@ export function getUserProfile() {
           signOut({ callbackUrl: '/' });
         }
       });
-  }
+  };
 }
 
 export function selectEnrollment(enrollment) {
@@ -502,7 +495,7 @@ export function selectAssignment(assignment) {
 export function beginUpload(id) {
   return {
     type: types.Action.BeginUpload,
-    payload: {id}
+    payload: { id },
   };
 }
 
@@ -526,14 +519,13 @@ export function uploadFailed(id) {
   };
 }
 
-
 export function postRecording({
   slug,
   assignmentId,
   audio,
   composition,
   submissionId,
-  index=0
+  index = 0,
 }) {
   return (dispatch, getState) => {
     const {
@@ -542,13 +534,13 @@ export function postRecording({
 
     dispatch(beginUpload(submissionId));
     // let body = ''
-    let bodyObj = {"content":"N/A for Perform submissions"};
+    let bodyObj = { content: 'N/A for Perform submissions' };
     if (composition) {
       bodyObj = { content: composition };
     }
-    
+
     bodyObj.index = index;
-    let body = JSON.stringify(bodyObj);
+    const body = JSON.stringify(bodyObj);
     return fetch(
       `${process.env.NEXT_PUBLIC_BACKEND_HOST}/api/courses/${slug}/assignments/${assignmentId}/submissions/`,
       {
@@ -558,7 +550,7 @@ export function postRecording({
         },
         method: 'POST',
         body,
-      }
+      },
     )
       .then(assertResponse)
       .then((res) => res.json())
@@ -571,12 +563,11 @@ export function postRecording({
             },
             method: 'POST',
             body: audio,
-          }
+          },
         )
           .then(assertResponse)
           .then((response) => response.json())
-          .then((res) => {
-          });
+          .then((res) => {});
       })
       .then(() => {
         // success case
@@ -601,8 +592,13 @@ export function postRespond({ slug, assignmentId, response }) {
       currentUser: { token },
     } = getState();
     if (!slug || !assignmentId || !response) {
-      console.error('missing requirements to submit', slug, assignmentId, response)
-      return;
+      console.error(
+        'missing requirements to submit',
+        slug,
+        assignmentId,
+        response,
+      );
+      return null;
     }
     dispatch(beginUpload(assignmentId));
     const body = JSON.stringify({ content: JSON.stringify(response) });
@@ -615,7 +611,7 @@ export function postRespond({ slug, assignmentId, response }) {
         },
         method: 'POST',
         body,
-      }
+      },
     )
       .then(assertResponse)
       .then((res) => res.json())
@@ -652,7 +648,7 @@ export function postConnect({ slug, assignmentId, response }) {
         },
         method: 'POST',
         body,
-      }
+      },
     )
       .then(assertResponse)
       .then((res) => res.json())
@@ -673,7 +669,6 @@ export function postConnect({ slug, assignmentId, response }) {
   };
 }
 
-
 export function gotSingleStudentAssignment(assignment) {
   return {
     type: types.Action.GotSingleAssignment,
@@ -684,7 +679,7 @@ export function gotSingleStudentAssignment(assignment) {
 export function fetchSingleStudentAssignment({ slug, assignmentId }) {
   if (!assignmentId) {
     console.error('assignmentId is required');
-    return;
+    return null;
   }
   return (dispatch, getState) => {
     const {
@@ -697,12 +692,12 @@ export function fetchSingleStudentAssignment({ slug, assignmentId }) {
           Authorization: `Token ${token}`,
           'Content-Type': 'application/json',
         },
-      }
+      },
     )
       .then(assertResponse)
       .then((response) => response.json())
       .then((assignment) => dispatch(selectAssignment(assignment)));
-  }
+  };
 }
 
 export function didInstrument() {

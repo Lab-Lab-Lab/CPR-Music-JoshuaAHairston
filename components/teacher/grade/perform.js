@@ -39,6 +39,7 @@ export default function GradePerform({ submissions }) {
         {submissions &&
           submissions.map((submission, submissionIdx) => {
             let rte;
+            let reflection;
             if (
               submission?.assignment?.activity?.activity_type?.category ===
                 'Respond' &&
@@ -66,43 +67,44 @@ export default function GradePerform({ submissions }) {
                         {submission.assignment.enrollment.user.name}
                       </Card.Title>
                       <Card.Text>
-                        {submission.attachments?.[0]?.file ? (
+                        {submission.attachments?.[0]?.file && (
                           // eslint-disable-next-line jsx-a11y/media-has-caption
                           <audio
                             controls
                             src={submission.attachments[0].file}
                             ref={audioRef}
                           />
-                        ) : submission?.assignment?.activity?.activity_type
-                            ?.category === 'Respond' && submission?.content ? (
-                          <Row>
-                            <Col>
-                              <p>
-                                {JSON.parse(submission?.content).reflection}
-                              </p>
-                            </Col>
-                            <Col xs={1}>
-                              <dl>
-                                <dt>R</dt>
-                                <dd>
-                                  <code>{rte.r}</code>
-                                </dd>
-                                <dt>T</dt>
-                                <dd>
-                                  <code>{rte.t}</code>
-                                </dd>
-                                <dt>E</dt>
-                                <dd>
-                                  <code>{rte.e}</code>
-                                </dd>
-                              </dl>
-                            </Col>
-                          </Row>
-                        ) : (
-                          submission?.assignment?.activity?.activity_type?.category.includes(
-                            'Connect'
-                          ) && <p>{submission?.content}</p>
                         )}
+
+                        {submission?.assignment?.activity?.activity_type
+                          ?.category === 'Respond' &&
+                          submission?.content && (
+                            <Row>
+                              <Col>
+                                <p>{reflection}</p>
+                              </Col>
+                              <Col xs={1}>
+                                <dl>
+                                  <dt>R</dt>
+                                  <dd>
+                                    <code>{rte.r}</code>
+                                  </dd>
+                                  <dt>T</dt>
+                                  <dd>
+                                    <code>{rte.t}</code>
+                                  </dd>
+                                  <dt>E</dt>
+                                  <dd>
+                                    <code>{rte.e}</code>
+                                  </dd>
+                                </dl>
+                              </Col>
+                            </Row>
+                          )}
+
+                        {submission?.assignment?.activity?.activity_type?.category.includes(
+                          'Connect',
+                        ) && <p>{submission?.content}</p>}
                       </Card.Text>
                     </Card.Body>
                     <ListGroup className="list-group-flush">

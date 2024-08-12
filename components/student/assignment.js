@@ -14,13 +14,12 @@ import Layout from '../layout';
 import Instructions from './instructions';
 import { getMySubmissionsForAssignment } from '../../api';
 import RecentSubmission from './recentSubmission';
-import ActivityPicker from './activityPicker';
 
 export default function StudentAssignment({ children, assignment }) {
   const router = useRouter();
 
   const { slug, piece, actCategory = 'Create', partType } = router.query;
-  
+
   const {
     isLoading,
     isIdle,
@@ -31,7 +30,7 @@ export default function StudentAssignment({ children, assignment }) {
     () => getMySubmissionsForAssignment({ slug, assignmentId: assignment.id }),
     {
       enabled: !!assignment && !!slug && !!assignment.id,
-    }
+    },
   );
 
   // const
@@ -50,11 +49,13 @@ export default function StudentAssignment({ children, assignment }) {
           {/* moved to navbar */}
           <Col>
             <h1>
-              {(actCategory == 'Perform' || actCategory == 'Create') &&
+              {(actCategory === 'Perform' || actCategory === 'Create') &&
                 `${actCategory} `}
               {assignment?.activity?.activity_type?.name} Activity
             </h1>
-            <Instructions body={assignment?.activity_body ?? assignment?.activity?.body} />
+            <Instructions
+              body={assignment?.activity_body ?? assignment?.activity?.body}
+            />
             {assignment.submissions.length > 0 ? (
               <Accordion defaultActiveKey="0" alwaysOpen className="cpr-create">
                 <Accordion.Item eventKey="0">

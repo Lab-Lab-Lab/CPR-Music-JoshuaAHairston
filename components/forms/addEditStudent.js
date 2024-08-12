@@ -9,7 +9,6 @@ function AddEditStudent() {
   const [grade, setGrade] = useState();
 
   const addStudent = (ev) => {
-
     // TODO: actually dispatch action to add a student here
 
     // don't refresh the page

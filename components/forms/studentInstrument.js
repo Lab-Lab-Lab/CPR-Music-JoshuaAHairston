@@ -10,22 +10,24 @@ import * as types from '../../types';
 
 function StudentInstrument({ enrollment, token, options: instruments }) {
   const [instrument, setInstrument] = useState(
-    enrollment?.instrument?.id ?? ''
+    enrollment?.instrument?.id ?? '',
   );
   const dispatch = useDispatch();
 
   const updateInstrument = (ev) => {
-    const instrumentObj = instruments.find((instr) => instr.id == ev.target.value);
+    const instrumentObj = instruments.find(
+      (instr) => instr.id === ev.target.value,
+    );
 
     if (instrumentObj) {
-    dispatch(
-      updateEnrollmentInstrument({
-        djangoToken: token,
-        enrollmentId: enrollment.id,
-        instrument: instrumentObj,
-      })
-    );
-    setInstrument(ev.target.value);
+      dispatch(
+        updateEnrollmentInstrument({
+          djangoToken: token,
+          enrollmentId: enrollment.id,
+          instrument: instrumentObj,
+        }),
+      );
+      setInstrument(ev.target.value);
     }
   };
 

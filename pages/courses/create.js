@@ -3,7 +3,6 @@ import { useSession } from 'next-auth/react';
 import Layout from '../../components/layout';
 import AddEditCourse from '../../components/forms/addEditCourse';
 
-
 export default function CreateCourse() {
   const { data: session } = useSession();
 

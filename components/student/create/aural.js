@@ -8,9 +8,7 @@ import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import { getStudentAssignments, mutateCreateSubmission } from '../../../api';
 import Recorder from '../../recorder';
-import {
-  postRecording,
-} from '../../../actions';
+import { postRecording } from '../../../actions';
 
 const FlatEditor = dynamic(() => import('../../flatEditor'), {
   ssr: false,
@@ -18,11 +16,14 @@ const FlatEditor = dynamic(() => import('../../flatEditor'), {
 
 const FlatMelodyViewer = dynamic(() => import('../../flatMelodyViewer'), {
   ssr: false,
-})
-
-const ChordScaleBucketScore = dynamic(() => import('../../chordScaleBucketScore'), {
-  ssr: false,
 });
+
+const ChordScaleBucketScore = dynamic(
+  () => import('../../chordScaleBucketScore'),
+  {
+    ssr: false,
+  },
+);
 
 export default function CreativityAuralActivity() {
   const dispatch = useDispatch();
@@ -34,15 +35,15 @@ export default function CreativityAuralActivity() {
   const [json, setJson] = useState('');
   const composition = useRef('');
 
-
   const userInfo = useSelector((state) => state.currentUser);
 
   const {
     isLoading: loaded,
     error: assignmentsError,
     data: assignments,
-  } = useQuery(['assignments',slug], getStudentAssignments(slug), {
-    enabled: !!slug, staleTime: 5*60*1000
+  } = useQuery(['assignments', slug], getStudentAssignments(slug), {
+    enabled: !!slug,
+    staleTime: 5 * 60 * 1000,
   });
   const mutation = useMutation(mutateCreateSubmission({ slug }));
 
@@ -50,17 +51,16 @@ export default function CreativityAuralActivity() {
     assignments &&
     Object.values(assignments)
       .reduce((prev, current) => [...prev, ...current], [])
-      .filter((assn) => {
-        return (
+      .filter(
+        (assn) =>
           assn.piece_slug === piece &&
-          assn.activity_type_category === actCategory
-        );
-      })?.[0];
+          assn.activity_type_category === actCategory,
+      )?.[0];
   const currentTransposition = currentAssignment?.transposition;
   const flatIOScoreForTransposition =
     currentAssignment?.part?.transpositions?.filter(
       (partTransposition) =>
-        partTransposition.transposition.name === currentTransposition
+        partTransposition.transposition.name === currentTransposition,
     )?.[0]?.flatio;
 
   const submitCreativity = ({ audio, submissionId }) =>
@@ -71,7 +71,7 @@ export default function CreativityAuralActivity() {
         audio,
         composition: composition.current,
         submissionId,
-      })
+      }),
     );
   let scoreJSON;
   if (flatIOScoreForTransposition) {
@@ -80,7 +80,7 @@ export default function CreativityAuralActivity() {
   return flatIOScoreForTransposition ? (
     <>
       <FlatMelodyViewer score={scoreJSON} onLoad={setJson} />
-      { json && (
+      {json && (
         <>
           <Row>
             <Col md={4}>
@@ -88,7 +88,7 @@ export default function CreativityAuralActivity() {
                 height={150}
                 referenceScoreJSON={json}
                 chordScaleBucket="tonic"
-                colors='tonic'
+                colors="tonic"
                 instrumentName={currentAssignment?.instrument}
               />
             </Col>
@@ -97,7 +97,7 @@ export default function CreativityAuralActivity() {
                 height={150}
                 referenceScoreJSON={json}
                 chordScaleBucket="subdominant"
-                colors='subdominant'
+                colors="subdominant"
                 instrumentName={currentAssignment?.instrument}
               />
             </Col>
@@ -106,7 +106,7 @@ export default function CreativityAuralActivity() {
                 height={150}
                 referenceScoreJSON={json}
                 chordScaleBucket="dominant"
-                colors='dominant'
+                colors="dominant"
                 instrumentName={currentAssignment?.instrument}
               />
             </Col>

@@ -6,11 +6,7 @@ import { useMutation, useQueryClient } from 'react-query';
 import { useRouter } from 'next/router';
 import { useDispatch, useSelector } from 'react-redux';
 import { mutateGradeSubmission } from '../../../api';
-import {
-  beginUpload,
-  uploadFailed,
-  uploadSucceeded,
-} from '../../../actions';
+import { beginUpload, uploadFailed, uploadSucceeded } from '../../../actions';
 import StatusIndicator from '../../statusIndicator';
 
 export default function RTE({ submission, submitAction, autoFocus = false }) {
@@ -20,7 +16,9 @@ export default function RTE({ submission, submitAction, autoFocus = false }) {
   const [isFormFocused, setFormFocus] = useState(false);
   const [rhythm, setRhythm] = useState(submission?.grade?.rhythm ?? '');
   const [tone, setTone] = useState(submission?.grade?.tone ?? '');
-  const [expression, setExpression] = useState(submission?.grade?.expression ?? '');
+  const [expression, setExpression] = useState(
+    submission?.grade?.expression ?? '',
+  );
   const audioRef = useRef();
   const dispatch = useDispatch();
   const queryClient = useQueryClient();
@@ -31,7 +29,7 @@ export default function RTE({ submission, submitAction, autoFocus = false }) {
       await queryClient.cancelQueries('gradeableSubmissions');
       // Snapshot the previous value
       const previousSubmissions = queryClient.getQueryData(
-        'gradeableSubmissions'
+        'gradeableSubmissions',
       );
       // Optimistically update to the new value
       queryClient.setQueryData('gradeableSubmissions', (old) => {
@@ -40,7 +38,7 @@ export default function RTE({ submission, submitAction, autoFocus = false }) {
             ...old.map((sub) =>
               sub.id === newGrade.sub
                 ? { ...sub, grades: [...sub.grades, newGrade] }
-                : sub
+                : sub,
             ),
           ];
         }
@@ -54,7 +52,7 @@ export default function RTE({ submission, submitAction, autoFocus = false }) {
       dispatch(uploadFailed(`grade-${submission.id}`));
       queryClient.setQueryData(
         'gradeableSubmissions',
-        context.previousSubmissions
+        context.previousSubmissions,
       );
     },
     onSuccess: () => {
@@ -67,7 +65,7 @@ export default function RTE({ submission, submitAction, autoFocus = false }) {
   });
   const grade = ({ sub, r, t, e, grader }) =>
     gradeMutation.mutate({
-      student_submission: sub,
+      studentSubmission: sub,
       rhythm: r,
       tone: t,
       expression: e,
@@ -157,7 +155,12 @@ export default function RTE({ submission, submitAction, autoFocus = false }) {
       <Button variant="primary" type="submit" className="mb-3">
         Submit
       </Button>{' '}
-      <StatusIndicator statusId={(!!submitAction ? submission?.id : `grade-${submission.id}`) ?? 'respond'} />
+      <StatusIndicator
+        statusId={
+          (submitAction ? submission?.id : `grade-${submission.id}`) ??
+          'respond'
+        }
+      />
     </Form>
   );
 }

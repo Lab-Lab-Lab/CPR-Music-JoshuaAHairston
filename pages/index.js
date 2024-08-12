@@ -1,16 +1,22 @@
 'use client';
+
 import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import Link from 'next/link';
 import Card from 'react-bootstrap/Card';
 import CardGroup from 'react-bootstrap/CardGroup';
-import Layout from '../components/layout';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import { Container } from 'react-bootstrap';
-import { FaComment, FaLaughBeam, FaMicrophone, FaMicrophoneAlt } from 'react-icons/fa';
-import { FaTools } from 'react-icons/fa';
-import { FaRulerCombined } from 'react-icons/fa';
+import {
+  FaComment,
+  FaLaughBeam,
+  FaMicrophone,
+  FaMicrophoneAlt,
+  FaTools,
+  FaRulerCombined,
+} from 'react-icons/fa';
+import Layout from '../components/layout';
 
 function Index() {
   return (
@@ -19,10 +25,10 @@ function Index() {
       <Row>
         <Col>
           <p>
-            MusicCPR is a free platform that facilitates music
-            teachers' collection of individual student achievement data that
-            aligns with ensemble repertoire and artistic processes (create,
-            perform, respond, connect) described in National Standards for Arts
+            MusicCPR is a free platform that facilitates music teachers&apos;
+            collection of individual student achievement data that aligns with
+            ensemble repertoire and artistic processes (create, perform,
+            respond, connect) described in National Standards for Arts
             Education.
           </p>
         </Col>
@@ -63,7 +69,7 @@ function Index() {
             <li>Web-based</li>
             <li>Assign activities</li>
             <li>
-              Grade students' work
+              Grade students&apos; work
               <ul>
                 <li>give individual performance feedback</li>
                 <li>export for use in other tools</li>
@@ -115,9 +121,10 @@ function Index() {
         </Col>
         <Col>
           <h3 className="text-primary">Individual Student Assessment Tools</h3>{' '}
-          facilitate music educators' in collecting data on each individual student's
-          achievement relative to four artistic processes (create, perform,
-          respond, connect), and to track and share their growth over time.
+          facilitate music educators&apos; in collecting data on each individual
+          student&apos;s achievement relative to four artistic processes
+          (create, perform, respond, connect), and to track and share their
+          growth over time.
         </Col>
         {/* <Col>
           <section>
@@ -165,13 +172,13 @@ function Index() {
           <FaTools size="3rem" className="text-info" />
         </Col>
         <Col>
-          <h3 className="text-info">Perform Prompts</h3> encourage every student in
-          the ensemble &emdash; regardless of the instrument they play &emdash;
-          to learn important musical elements such as melodies and bass lines.
-          Students will not be restricted to graduating high school music only
-          having learned twelve 3rd clarinet parts; they will be able to play
-          recognizable melodies and develop understanding of the bass lines and
-          harmonies that underpin those themes.
+          <h3 className="text-info">Perform Prompts</h3> encourage every student
+          in the ensemble &emdash; regardless of the instrument they play
+          &emdash; to learn important musical elements such as melodies and bass
+          lines. Students will not be restricted to graduating high school music
+          only having learned twelve 3rd clarinet parts; they will be able to
+          play recognizable melodies and develop understanding of the bass lines
+          and harmonies that underpin those themes.
         </Col>
       </Row>
       <Row

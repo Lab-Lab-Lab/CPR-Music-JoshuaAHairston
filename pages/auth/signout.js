@@ -3,9 +3,9 @@ import Button from 'react-bootstrap/Button';
 import Row from 'react-bootstrap/Row';
 import { signOut, useSession } from 'next-auth/react';
 import { useDispatch } from 'react-redux';
+import { useRouter } from 'next/router';
 import Layout from '../../components/layout';
 import { logoutUser } from '../../actions';
-import { useRouter } from 'next/router';
 
 function SignOut() {
   const router = useRouter();
@@ -15,7 +15,7 @@ function SignOut() {
   const logout = (ev) => {
     dispatch(logoutUser(session.djangoToken));
     signOut();
-    router.push('/')
+    router.push('/');
   };
   return (
     <Layout>

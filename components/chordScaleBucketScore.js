@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import Embed from 'flat-embed';
-import { colorNotes, getChordScaleInKey, keyFromScoreJSON, colorMap} from '../lib/flat';
+import {
+  colorNotes,
+  getChordScaleInKey,
+  keyFromScoreJSON,
+  colorMap,
+} from '../lib/flat';
 
 function ChordScaleBucketScore({
   height,
@@ -14,13 +19,13 @@ function ChordScaleBucketScore({
   const editorRef = React.createRef();
 
   // *FIX* Need to get rid of arrow, make it a normal function as we did with keyFromScoreJSON, and getChordScaleInKey below.
-  function embedTransposed (
+  function embedTransposed(
     bucket,
     transposeEmbed,
     // templt,
     keySig,
     instrName,
-    octaveShift
+    octaveShift,
   ) {
     const template = JSON.parse(
       JSON.stringify({
@@ -79,7 +84,7 @@ function ChordScaleBucketScore({
             },
           ],
         },
-      })
+      }),
     );
     // change the notes in the score from whatever they are in tonic and eb to what we're given
     const scorePart =
@@ -103,7 +108,7 @@ function ChordScaleBucketScore({
           note.pitch.alter = alter;
         }
         return note;
-      }
+      },
     );
 
     // change the key signature in the score from whatever it is in tonic and eb to what we're given
@@ -111,19 +116,22 @@ function ChordScaleBucketScore({
       (element) => {
         if (element.key) {
           // FIXME
+          // eslint-disable-next-line no-param-reassign
           element.key.fifths = keySig.keyAsJSON.fifths;
         }
         if (element.clef) {
           // FIXME
+          // eslint-disable-next-line no-param-reassign
           element.clef = keySig.clef;
         }
-      }
+      },
     );
 
     if (octaveShift !== 0) {
       template?.[
         'score-partwise'
       ]?.part?.[0]?.measure?.[0]?.attributes?.forEach((element) => {
+        // eslint-disable-next-line no-param-reassign
         element.transpose = {
           chromatic: '0',
           'octave-change': `${octaveShift}`,
@@ -134,7 +142,7 @@ function ChordScaleBucketScore({
       .ready()
       .then(() => transposeEmbed.loadJSON(template));
     return resultTransposed;
-  };
+  }
 
   useEffect(() => {
     const embedParams = {
@@ -165,7 +173,11 @@ function ChordScaleBucketScore({
   }, [height]);
 
   useEffect(() => {
-    if (referenceScoreJSON !== '' && referenceScoreJSON !== undefined && embed) {
+    if (
+      referenceScoreJSON !== '' &&
+      referenceScoreJSON !== undefined &&
+      embed
+    ) {
       // Makes sure we don't accidentally run this code and prevents runtime error.
       const copyJSON = JSON.parse(referenceScoreJSON); // Creates our JSON object to use in our functions below.
 
@@ -183,7 +195,7 @@ function ChordScaleBucketScore({
 
       if (colors) {
         let mappedColors = colors;
-        if(Array.isArray(colors) && colors.length > 0) {
+        if (Array.isArray(colors) && colors.length > 0) {
           mappedColors = colors.map(colorMap);
         } else {
           mappedColors = colorMap(colors);
@@ -196,9 +208,7 @@ function ChordScaleBucketScore({
     }
   }, [referenceScoreJSON, chordScaleBucket, embed]);
 
-  return (
-    <div className={className} ref={editorRef} />
-  );
+  return <div className={className} ref={editorRef} />;
 }
 
 export default ChordScaleBucketScore;

@@ -4,9 +4,9 @@ import Row from 'react-bootstrap/Row';
 import Button from 'react-bootstrap/Button';
 import Col from 'react-bootstrap/Col';
 import Form from 'react-bootstrap/Form';
-import Layout from '../../components/layout';
 import { Alert } from 'react-bootstrap';
 import { useEffect, useState } from 'react';
+import Layout from '../../components/layout';
 
 // https://github.com/nextauthjs/next-auth/issues/2426#issuecomment-1141406105
 // try this instead?
@@ -21,7 +21,7 @@ export default function SignIn({ csrfToken }) {
       const token = await getCsrfToken();
       setCsrf(token);
     }
-    if(session.status !== 'loading') {
+    if (session.status !== 'loading') {
       fetchCsrf();
     }
   }, [session.status]);
@@ -89,7 +89,9 @@ function SignInError({ error = errors.default }) {
     <Alert variant="danger">
       {errorMessage}{' '}
       {error === 'CredentialsSignin' && (
-        <a href={`${process.env.NEXT_PUBLIC_BACKEND_HOST}/accounts/password/reset/`}>
+        <a
+          href={`${process.env.NEXT_PUBLIC_BACKEND_HOST}/accounts/password/reset/`}
+        >
           Forgot your password?
         </a>
       )}

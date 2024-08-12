@@ -22,17 +22,14 @@ export default function ConnectActivity() {
     }
   }, [slug, userInfo.token]);
   const { items: activities, loaded: loadedActivities } = useSelector(
-    (state) => state.activities
+    (state) => state.activities,
   );
   const currentAssignment = useSelector((state) => state.selectedAssignment);
   const assignment =
     loadedActivities &&
     activities &&
-    activities?.[slug] &&
-    activities?.[slug].filter(
-      (assn) =>
-        assn.piece_slug === piece &&
-        assn.activity_type_category.startsWith(actCategory)
+    activities?.[piece].filter((assn) =>
+      assn.activity_type_category.startsWith(actCategory),
     )?.[0];
   const assignmentId = assignment?.id;
   useEffect(() => {
@@ -41,7 +38,7 @@ export default function ConnectActivity() {
         fetchSingleStudentAssignment({
           slug,
           assignmentId,
-        })
+        }),
       );
     }
   }, [slug, loadedActivities, activities]);
@@ -54,7 +51,7 @@ export default function ConnectActivity() {
         slug,
         assignmentId,
         response: reflection,
-      })
+      }),
     );
   };
 
@@ -69,7 +66,7 @@ export default function ConnectActivity() {
           frameBorder="0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
-        ></iframe>
+        />
       )}
       <Form id="connect-form" onSubmit={submitAction}>
         <textarea
@@ -81,7 +78,8 @@ export default function ConnectActivity() {
           }}
           style={{ width: '100%' }}
         />
-        <Button type="submit">Submit</Button> <StatusIndicator statusId={assignmentId ?? 'connect'} />
+        <Button type="submit">Submit</Button>{' '}
+        <StatusIndicator statusId={assignmentId ?? 'connect'} />
       </Form>
     </>
   );

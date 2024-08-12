@@ -10,7 +10,7 @@ import { fetchInstruments, fetchRoster } from '../../actions';
 function StudentsWithInstruments() {
   const userInfo = useSelector((state) => state.currentUser);
   const { items: instruments, loaded: instrumentsLoaded } = useSelector(
-    (state) => state.instruments
+    (state) => state.instruments,
   );
   const roster = useSelector((state) => state.roster);
   const router = useRouter();
@@ -21,9 +21,12 @@ function StudentsWithInstruments() {
       if (!instrumentsLoaded) {
         dispatch(fetchInstruments(userInfo.token));
       }
-      if ((!roster.loaded && slug) || (roster.loaded && slug && slug !== roster.courseSlug)) {
+      if (
+        (!roster.loaded && slug) ||
+        (roster.loaded && slug && slug !== roster.courseSlug)
+      ) {
         dispatch(
-          fetchRoster({ djangoToken: userInfo.token, courseSlug: slug })
+          fetchRoster({ djangoToken: userInfo.token, courseSlug: slug }),
         );
       }
     }

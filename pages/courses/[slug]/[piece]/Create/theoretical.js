@@ -3,7 +3,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import { useQuery } from 'react-query';
 import { getStudentAssignments } from '../../../../../api';
 import StudentAssignment from '../../../../../components/student/assignment';
-import CreativityActivity from '../../../../../components/student/create/theoretical'
+import CreativityActivity from '../../../../../components/student/create/theoretical';
 
 export default function CreateExploratoryActivityPage() {
   const router = useRouter();
@@ -15,17 +15,18 @@ export default function CreateExploratoryActivityPage() {
     isLoading: loaded,
     error: assignmentsError,
     data: assignments,
-  } = useQuery(['assignments',slug], getStudentAssignments(slug), {
-    enabled: !!slug, staleTime: 5*60*1000
+  } = useQuery(['assignments', slug], getStudentAssignments(slug), {
+    enabled: !!slug,
+    staleTime: 5 * 60 * 1000,
   });
   const currentAssignment =
     assignments &&
     Object.values(assignments)
       .reduce((prev, current) => [...prev, ...current], [])
       .filter(
-        (assn) =>{
-          return assn.piece_slug === piece &&
-          assn.activity_type_category === actCategory}
+        (assn) =>
+          assn.piece_slug === piece &&
+          assn.activity_type_category === actCategory,
       )?.[0];
 
   // TODO: branch on actCategory
@@ -33,7 +34,7 @@ export default function CreateExploratoryActivityPage() {
   /* eslint-disable no-nested-ternary */
   return currentAssignment ? (
     <StudentAssignment assignment={currentAssignment}>
-      <CreativityActivity></CreativityActivity>
+      <CreativityActivity />
     </StudentAssignment>
   ) : (
     <Spinner

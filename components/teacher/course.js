@@ -42,8 +42,9 @@ export default function TeacherCourseView() {
     data: assignments,
     refetch: refetchStudentAssns, // per https://react-query-v3.tanstack.com/guides/disabling-queries when the query has the enabled property,
     // The query will ignore query client invalidateQueries and refetchQueries calls that would normally result in the query refetching.
-  } = useQuery(['assignments',slug], getStudentAssignments(slug), {
-    enabled: !!slug, staleTime: 5*60*1000
+  } = useQuery(['assignments', slug], getStudentAssignments(slug), {
+    enabled: !!slug,
+    staleTime: 5 * 60 * 1000,
   });
   const {
     isLoadingAssignedActs,
@@ -59,7 +60,10 @@ export default function TeacherCourseView() {
       // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
       await queryClient.cancelQueries(['assignedPieces', slug]);
       // Snapshot the previous value
-      const previousAssigned = queryClient.getQueryData(['assignedPieces', slug]);
+      const previousAssigned = queryClient.getQueryData([
+        'assignedPieces',
+        slug,
+      ]);
       // Optimistically update to the new value
       queryClient.setQueryData(['assignedPieces', slug], (old) => {
         const updated = old;
@@ -71,7 +75,10 @@ export default function TeacherCourseView() {
     },
     // If the mutation fails, use the context returned from onMutate to roll back
     onError: (err, unassignedPiece, context) => {
-      queryClient.setQueryData(['assignedPieces', slug], context.previousAssigned);
+      queryClient.setQueryData(
+        ['assignedPieces', slug],
+        context.previousAssigned,
+      );
     },
     // Always refetch after error or success:
     onSettled: async () => {
@@ -89,11 +96,15 @@ export default function TeacherCourseView() {
       // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
       await queryClient.cancelQueries(['assignedPieces', slug]);
       // Snapshot the previous value
-      const previousAssigned = queryClient.getQueryData(['assignedPieces', slug]);
+      const previousAssigned = queryClient.getQueryData([
+        'assignedPieces',
+        slug,
+      ]);
       // Optimistically update to the new value
-      queryClient.setQueryData(['assignedPieces', slug], (old) => {
-        return { ...old, [newPiece.slug]: newPiece };
-      });
+      queryClient.setQueryData(['assignedPieces', slug], (old) => ({
+        ...old,
+        [newPiece.slug]: newPiece,
+      }));
       // Return a context object with the snapshotted value
       return { previousAssigned };
     },
@@ -103,7 +114,10 @@ export default function TeacherCourseView() {
       console.error(err);
       // assume this is because they haven't assigned instruments yet?
       setAssignError(err);
-      queryClient.setQueryData(['assignedPieces', slug], context.previousAssigned);
+      queryClient.setQueryData(
+        ['assignedPieces', slug],
+        context.previousAssigned,
+      );
     },
     // Always refetch after error or success:
     onSettled: async () => {
@@ -115,8 +129,7 @@ export default function TeacherCourseView() {
     },
   });
   const assign = (piecePlan) => assignMutation.mutate(piecePlan);
-  if (isLoadingPieces || isLoadingAssignedActs)
-    return 'Loading...';
+  if (isLoadingPieces || isLoadingAssignedActs) return 'Loading...';
   if (error || errorAssignedActs)
     return `An error has occurred: ${
       error?.message ?? errorAssignedActs?.message
@@ -128,12 +141,14 @@ export default function TeacherCourseView() {
         <Row>
           <Col>
             <Alert key="danger" variant="danger">
-              <Alert.Heading>Please assign students' instruments</Alert.Heading>
+              <Alert.Heading>
+                Please assign students&apos; instruments
+              </Alert.Heading>
               <p>
                 Sorry for the trouble, but just once per new course, we need you
                 to{' '}
                 <Link href={`/courses/${slug}/instruments`}>
-                  choose students' instruments
+                  choose students&apos; instruments
                 </Link>{' '}
                 prior to assigning pieces.
               </p>
@@ -147,22 +162,21 @@ export default function TeacherCourseView() {
           <ListGroup>
             {allPieces &&
               allPieces
-                .filter(
-                  (piece) =>{
-                    let reslt = true
-                    if (assignedPieces &&
+                .filter((piece) => {
+                  let reslt = true;
+                  if (
+                    assignedPieces &&
                     Object.values(assignedPieces).findIndex(
-                      (assignedPiece) => assignedPiece.id === piece.id
-                    ) !== -1) {
-                      reslt = false;
-                    }
-                    return reslt;
+                      (assignedPiece) => assignedPiece.id === piece.id,
+                    ) !== -1
+                  ) {
+                    reslt = false;
                   }
-                    
-                )
+                  return reslt;
+                })
                 .map((piece, pidx) => (
                   <ListGroupItem
-                    key={`${piece.id}-${pidx}`}
+                    key={`${piece.id}`}
                     className="d-flex justify-content-between align-items-center"
                   >
                     <div>{piece.name}</div>
@@ -181,51 +195,48 @@ export default function TeacherCourseView() {
               defaultActiveKey={Object.values(assignedPieces)[0]}
               alwaysOpen
             >
-              {Object.values(assignedPieces).map((piece) => {
-                return (
-                  <Accordion.Item eventKey={piece.id} key={piece.id}>
-                    <Accordion.Header>{piece.name}</Accordion.Header>
-                    <Accordion.Body>
-                      <Row>
-                        <Col md={9}>
-                          <ListGroup>
-                            {piece.activities &&
-                              Object.values(piece.activities).length > 0 &&
-                              Object.keys(piece.activities).map(
-                                (activityKey) => (
-                                  <ListGroupItem
-                                    key={activityKey}
-                                    className="d-flex justify-content-between"
-                                  >
-                                    <span className="me-auto">{`${piece.activities[activityKey].category} ${piece.activities[activityKey].name}`}</span>
-                                    <Link
-                                      href={`/courses/${slug}/${piece.slug}/${piece.activities[activityKey].category}/${piece.activities[activityKey].name}/grade`}
-                                      passHref legacyBehavior
-                                    >
-                                      <a className="btn btn-primary">
-                                        Grade <FaMarker />
-                                      </a>
-                                    </Link>
-                                  </ListGroupItem>
-                                )
-                              )}
-                          </ListGroup>
-                        </Col>
-                        <Col style={{ textAlign: 'center' }}>
-                          <Button
-                            variant="danger"
-                            onClick={() => {
-                              unassign(piece);
-                            }}
-                          >
-                            Delete <FaTrash />
-                          </Button>
-                        </Col>
-                      </Row>
-                    </Accordion.Body>
-                  </Accordion.Item>
-                );
-              })}
+              {Object.values(assignedPieces).map((piece) => (
+                <Accordion.Item eventKey={piece.id} key={piece.id}>
+                  <Accordion.Header>{piece.name}</Accordion.Header>
+                  <Accordion.Body>
+                    <Row>
+                      <Col md={9}>
+                        <ListGroup>
+                          {piece.activities &&
+                            Object.values(piece.activities).length > 0 &&
+                            Object.keys(piece.activities).map((activityKey) => (
+                              <ListGroupItem
+                                key={activityKey}
+                                className="d-flex justify-content-between"
+                              >
+                                <span className="me-auto">{`${piece.activities[activityKey].category} ${piece.activities[activityKey].name}`}</span>
+                                <Link
+                                  href={`/courses/${slug}/${piece.slug}/${piece.activities[activityKey].category}/${piece.activities[activityKey].name}/grade`}
+                                  passHref
+                                  legacyBehavior
+                                >
+                                  <a className="btn btn-primary">
+                                    Grade <FaMarker />
+                                  </a>
+                                </Link>
+                              </ListGroupItem>
+                            ))}
+                        </ListGroup>
+                      </Col>
+                      <Col style={{ textAlign: 'center' }}>
+                        <Button
+                          variant="danger"
+                          onClick={() => {
+                            unassign(piece);
+                          }}
+                        >
+                          Delete <FaTrash />
+                        </Button>
+                      </Col>
+                    </Row>
+                  </Accordion.Body>
+                </Accordion.Item>
+              ))}
             </Accordion>
           ) : (
             <p>There are no pieces assigned to this course.</p>
