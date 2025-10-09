@@ -17,6 +17,13 @@ function Adpative() {
   const webmidiInput = useRef(null)
 
   useEffect(() => {
+    const handleKeyDown = (event) => {
+        console.log("Key pressed:", event.key);
+      if (event.key in keyboardMap) {
+        onNote(keyboardMap[event.key]); 
+        }
+      }
+    window.addEventListener("keydown", handleKeyDown);
     recorder.current = new Recorder();
     getDestination().connect(recorder.current);
 
@@ -34,6 +41,7 @@ function Adpative() {
         setSamplerLoaded(true);
       }
     }).toDestination();
+    return () => window.removeEventListener("keydown", handleKeyDown);
   },[]);
 
   const keyboardMap = {
@@ -144,16 +152,6 @@ function Adpative() {
   },
 
 }
-  function keyboardHandler() {
-    useEffect(() => {
-      const handleKeyDown = (event) => {
-        console.log("Key pressed:", event.key);
-        onNote(event);
-      }
-      window.addEventListener("keydown", handleKeyDown);
-    }, []);
-  }
-
   function onEnabled() {
     
     if (WebMidi.inputs.length < 1) {
@@ -164,13 +162,13 @@ function Adpative() {
       console.log(device.name);
       console.log(index);
     });
-     webmidiInput.current = WebMidi.inputs[2]; // FIXME: we need to list the inputs from the loop above in the config ui so the user can select their thing
+     webmidiInput.current = WebMidi.inputs[0]; // FIXME: we need to list the inputs from the loop above in the config ui so the user can select their thing
       webmidiInput.current.channels[1].addListener("noteon", onNote);
 
   }
 
 }
-
+  //TODO: Have the 
   function onNote(e) {
   const accidental = e.note.accidental
   let note = e.note.name;
@@ -188,14 +186,14 @@ function Adpative() {
 
   
   async function enableEverything() {
-
+     // TODO: We will tell the user to plug in the 
      await WebMidi.enable().catch((err) => {
+       console.log("error");
       alert(err);
       return;
   });
     await start();
 
-    keyboardHandler();
     setToneLoaded(true);
     
   onEnabled();
