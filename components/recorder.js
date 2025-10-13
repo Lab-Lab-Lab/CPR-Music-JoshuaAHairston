@@ -1,5 +1,7 @@
 // with thanks to https://medium.com/front-end-weekly/recording-audio-in-mp3-using-reactjs-under-5-minutes-5e960defaf10
 
+import { Sampler, Recorder as toneRecorder, getDestination, loaded, start  } from "tone";
+import { WebMidi } from "webmidi";
 import MicRecorder from 'mic-recorder-to-mp3';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Button from 'react-bootstrap/Button';
@@ -220,7 +222,11 @@ export default function Recorder({ submit, accompaniment }) {
   const dispatch = useDispatch();
   const [min, setMinute] = useState(0);
   const [sec, setSecond] = useState(0);
-
+  const [isSamplerLoaded, setSamplerLoaded] = useState(false);
+  const [hasPermission, setHasPermission] = useState(false);
+  const tRecorder = useRef(null);
+  const sampler = useRef(null);
+  const webmidiInput = useRef(null);
   const accompanimentRef = useRef(null);
 
   const router = useRouter();
@@ -232,10 +238,53 @@ export default function Recorder({ submit, accompaniment }) {
     setBlobData();
   }, [partType]);
 
+  function onEnabled() {
+    
+    if (WebMidi.inputs.length < 1) {
+      console.error('tried to give permission, but no inputs')
+    } else {
+      setHasPermission(true);
+      WebMidi.inputs.forEach((device, index) => {
+        console.log(device.name);
+        console.log(index);
+      });
+      webmidiInput.current = WebMidi.inputs[2]; // FIXME: we need to list the inputs from the loop above in the config ui so the user can select their thing
+      webmidiInput.current.channels[1].addListener("noteon", onNote);
+    }
+  }
+
+
+  async function enableMidiTone() {
+    await WebMidi.enable().catch((err) => {
+      alert(err);
+      return;
+    })
+    await start();
+    onEnabled();
+  }
+
+  function onNote(e) {
+    const accidental = e.note.accidental
+    let note = e.note.name;
+    if (accidental != undefined) {
+      note += e.note.accidental;
+    }
+    note += e.note.octave;
+    console.log(e);
+    // sampler.current.triggerAttackRelease(note, 4);
+
+    loaded().then(() => {
+      sampler.current.triggerAttackRelease(note, 4);
+    });
+  }
+
+
+
   const startRecording = (ev) => {
     if (isBlocked) {
       console.error('cannot record, microphone permissions are blocked');
     } else {
+      //TODO make a prompt for the user to select if they are using midi or an instrument
       accompanimentRef.current.play();
       recorder
         .start()
@@ -286,7 +335,115 @@ export default function Recorder({ submit, accompaniment }) {
     newInfo.splice(index, 1);
     setBlobInfo(newInfo);
   }
+  // Start of integration
+  const keyboardMap = {
+  'a': {
+    qwerty: 'a',
+    note: {
+      name: 'C',
+      octave: 4,
+      accidental: undefined,
+    }
+  },
+  'w': {
+    qwerty: 'w',
+    note: {
+      name: 'C',
+      octave: 4,
+      accidental: '#',
+    }
+  },
+  's': {
+    qwerty: 's',
+    note: {
+      name: 'D',
+      octave: 4,
+      accidental: undefined,
+    }
+  },
+  'e': {
+    qwerty: 'e',
+    note: {
+      name: 'D',
+      octave: 4,
+      accidental: '#',
+    }
+  },
+  'd': {
+    qwerty: 'd',
+    note: {
+      name: 'E',
+      octave: 4,
+      accidental: undefined,
+    }
+  },
+  'f': {
+    qwerty: 'f',
+    note: {
+      name: 'F',
+      octave: 4,
+      accidental: undefined,
+    }
+  },
+  't': {
+    qwerty: 't',
+    note: {
+      name: 'F',
+      octave: 4,
+      accidental: '#',
+    }
+  },
+  'g': {
+    qwerty: 'g',
+    note: {
+      name: 'G',
+      octave: 4,
+      accidental: undefined,
+    }
+  },
 
+  'y': {
+    qwerty: 'y',
+    note: {
+      name: 'G',
+      octave: 4,
+      accidental: '#',
+    }
+  },
+  'h': {
+    qwerty: 'h',
+    note: {
+      name: 'A',
+      octave: 4,
+      accidental: undefined,
+    }
+  },
+  'u': {
+    qwerty: 'u',
+    note: {
+      name: 'A',
+      octave: 4,
+      accidental: '#',
+    }
+  },
+  'j': {
+    qwerty: 'j',
+    note: {
+      name: 'B',
+      octave: 4,
+      accidental: undefined,
+    }
+  },
+  'k': {
+    qwerty: 'k',
+    note: {
+      name: 'C',
+      octave: 5,
+      accidental: undefined,
+    }
+  },
+
+}
   // check for recording permissions
   useEffect(() => {
     if (
@@ -306,6 +463,31 @@ export default function Recorder({ submit, accompaniment }) {
           setIsBlocked(true);
         });
     }
+    const handleKeyDown = (event) => {
+      console.log("Key pressed:", event.key);
+      if (event.key in keyboardMap) {
+        onNote(keyboardMap[event.key]); 
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    tRecorder.current = new toneRecorder();
+    getDestination().connect(tRecorder.current);
+
+    sampler.current = new Sampler({
+
+      C5: "/audio/viola_c5.wav",
+      A4: "/audio/viola_a4.wav",
+      B4: "/audio/viola_b4.wav",
+      D4: "/audio/viola_d4.wav",
+      E4: "/audio/viola_e4.wav",
+      F4: "/audio/viola_f4.wav",
+      G4: "/audio/viola_g4.wav",
+    }, {
+      onload: () => {
+        setSamplerLoaded(true);
+      }
+    }).toDestination();
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   useEffect(() => {
@@ -342,9 +524,12 @@ export default function Recorder({ submit, accompaniment }) {
               {String(sec).padStart(2, '0')}
             </Button>
           ) : (
-            <Button onClick={startRecording}>
-              <FaMicrophone />
-            </Button>
+              <>
+                <Button onClick={startRecording} disabled={!hasPermission} >
+                <FaMicrophone />
+                </Button>
+                <Button disabled={!isSamplerLoaded} onClick={enableMidiTone}>Enable Midi</Button>
+              </>
           )}
         </Col>
       </Row>

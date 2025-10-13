@@ -9,7 +9,7 @@ function Adpative() {
   const recorder = useRef(null);
   const sampler = useRef(null);
   const [isSamplerLoaded, setSamplerLoaded] = useState(false);
-  const [isToneLoaded, setToneLoaded] = useState(false);
+  // const [isToneLoaded, setToneLoaded] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
   // https://github.com/Tonejs/Tone.js/wiki/Using-Tone.js-with-React-React-Typescript-or-Vue
   // https://dev.to/ericsonwillians/ive-built-my-own-synthesizer-using-tonejs-and-react-293f
@@ -193,8 +193,6 @@ function Adpative() {
       return;
   });
     await start();
-
-    setToneLoaded(true);
     
   onEnabled();
     
