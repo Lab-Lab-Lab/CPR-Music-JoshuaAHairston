@@ -30,7 +30,18 @@ import WaveSurfer from 'wavesurfer.js';
 import { UploadStatusEnum } from '../types';
 import StatusIndicator from './statusIndicator';
 import styles from '../styles/recorder.module.css';
-
+function Config({ RecordingTypeChanged, value }) {
+  return (
+    <label>
+      Pick recording type:
+      <select value={value} onChange={RecordingTypeChanged}>
+        <option value="mic">Mic</option>
+        <option value="midi">Midi</option>
+        <option value="keyboard">Keyboard</option>
+      </select>
+    </label>
+  );
+}
 function AudioViewer({ src }) {
   const containerW = useRef(null);
   const waveSurf = useRef(null);
@@ -228,9 +239,13 @@ export default function Recorder({ submit, accompaniment }) {
   const sampler = useRef(null);
   const webmidiInput = useRef(null);
   const accompanimentRef = useRef(null);
-
   const router = useRouter();
   const { slug, piece, actCategory, partType } = router.query;
+  const [recordingType, setRecordingType] = useState("mic");
+  const handleRecordingTypeChange = useCallback((e) => {
+    const value = e.target.value;
+    setRecordingType(value);
+  });
 
   useEffect(() => {
     setBlobInfo([]);
@@ -240,15 +255,17 @@ export default function Recorder({ submit, accompaniment }) {
 
   function onEnabled() {
     
-    if (WebMidi.inputs.length < 1) {
+    if (WebMidi.inputs.length < 1 && recordingType == "midi") {
       console.error('tried to give permission, but no inputs')
     } else {
+      console.log("else statement");
       setHasPermission(true);
+      console.log(hasPermission);
       WebMidi.inputs.forEach((device, index) => {
         console.log(device.name);
         console.log(index);
       });
-      webmidiInput.current = WebMidi.inputs[2]; // FIXME: we need to list the inputs from the loop above in the config ui so the user can select their thing
+      webmidiInput.current = WebMidi.inputs[0]; // FIXME: we need to list the inputs from the loop above in the config ui so the user can select their thing
       webmidiInput.current.channels[1].addListener("noteon", onNote);
     }
   }
@@ -259,6 +276,7 @@ export default function Recorder({ submit, accompaniment }) {
       alert(err);
       return;
     })
+    console.log("before start");
     await start();
     onEnabled();
   }
@@ -272,10 +290,14 @@ export default function Recorder({ submit, accompaniment }) {
     note += e.note.octave;
     console.log(e);
     // sampler.current.triggerAttackRelease(note, 4);
-
+    console.log(hasPermission);
+    // if(hasPermission === true) {
+    console.log("Hello permission is true");
     loaded().then(() => {
       sampler.current.triggerAttackRelease(note, 4);
-    });
+    });  
+    // }
+   
   }
 
 
@@ -283,7 +305,7 @@ export default function Recorder({ submit, accompaniment }) {
   const startRecording = (ev) => {
     if (isBlocked) {
       console.error('cannot record, microphone permissions are blocked');
-    } else {
+    } else if(recordingType == "mic") {
       //TODO make a prompt for the user to select if they are using midi or an instrument
       accompanimentRef.current.play();
       recorder
@@ -292,30 +314,59 @@ export default function Recorder({ submit, accompaniment }) {
           setIsRecording(true);
         })
         .catch((err) => console.error('problem starting recording', err));
+    } else {
+      accompanimentRef.current.play();
+      tRecorder.current.start().then(() => {
+        setIsRecording(true);
+      })
+        .catch((err) => console.error('problem starting recording midi/keyboard'));
     }
   };
 
   const stopRecording = (ev) => {
     accompanimentRef.current.pause();
     accompanimentRef.current.load();
+    if (recordingType === "mic") {
 
-    recorder
-      .stop()
-      .getMp3()
-      .then(([buffer, blob]) => {
-        setBlobData(blob);
-        const url = URL.createObjectURL(blob);
-        setBlobURL(url);
-        setBlobInfo([
-          ...blobInfo,
-          {
-            url,
-            data: blob,
-          },
-        ]);
-        setIsRecording(false);
-      })
-      .catch((e) => console.error('error stopping recording', e));
+      recorder
+        .stop()
+        .getMp3()
+        .then(([buffer, blob]) => {
+          setBlobData(blob);
+          const url = URL.createObjectURL(blob);
+          setBlobURL(url);
+          setBlobInfo([
+            ...blobInfo,
+            {
+              url,
+              data: blob,
+            },
+          ]);
+          setIsRecording(false);
+        })
+        .catch((e) => console.error('error stopping recording', e));
+
+    } else {
+      tRecorder.current.stop()
+        .then((blob) => {
+          const url = URL.createObjectURL(blob);
+          setBlobData(blob);
+          setBlobURL(url);
+          setBlobInfo([
+            ...blobInfo,
+            {
+              url,
+              data: blob,
+            },
+          ]);
+          // a.href = url;
+          // a.textContent = "Listen to recording";
+          // a.download = "test.ogg"
+          // document.body.appendChild(a);
+          setIsRecording(false);
+        })
+        .catch((e) => console.error('error stopping recording midi/keyboard'))
+    }
   };
 
   const submitRecording = (i, submissionId) => {
@@ -525,10 +576,24 @@ export default function Recorder({ submit, accompaniment }) {
             </Button>
           ) : (
               <>
-                <Button onClick={startRecording} disabled={!hasPermission} >
-                <FaMicrophone />
-                </Button>
-                <Button disabled={!isSamplerLoaded} onClick={enableMidiTone}>Enable Midi</Button>
+                {recordingType === "mic" ? (
+                  <>
+                  <Button onClick={startRecording}> {/*idk about the disabled here */}
+                  <FaMicrophone />
+                  </Button>
+                  <Config RecordingTypeChanged={handleRecordingTypeChange} value={recordingType}></Config>
+                  </>
+                ) : (
+                  <>
+                    <Button onClick={startRecording} disabled={!hasPermission} > {/*idk about the disabled here */}
+                    <FaMicrophone />
+                    </Button>
+                    <Button disabled={!isSamplerLoaded} onClick={enableMidiTone}>Enable Midi or Keyboard</Button>
+                    <Config RecordingTypeChanged={handleRecordingTypeChange} value={recordingType}></Config>
+                  </>
+ 
+                )}
+               
               </>
           )}
         </Col>
