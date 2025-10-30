@@ -5,6 +5,8 @@ import { WebMidi } from "webmidi";
 import MicRecorder from 'mic-recorder-to-mp3';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Button from 'react-bootstrap/Button';
+import { IoSettingsSharp } from "react-icons/io5";
+import Modal from 'react-bootstrap/Modal'
 import {
   FaMicrophone,
   FaStop,
@@ -222,6 +224,7 @@ function AudioViewer({ src }) {
   );
 }
 
+
 export default function Recorder({ submit, accompaniment }) {
   // const Mp3Recorder = new MicRecorder({ bitRate: 128 }); // 128 is default already
   const [isRecording, setIsRecording] = useState(false);
@@ -242,10 +245,21 @@ export default function Recorder({ submit, accompaniment }) {
   const router = useRouter();
   const { slug, piece, actCategory, partType } = router.query;
   const [recordingType, setRecordingType] = useState("mic");
+  const webmidiIndex = useRef(null);
   const handleRecordingTypeChange = useCallback((e) => {
     const value = e.target.value;
     setRecordingType(value);
   });
+  const [show, setShow] = useState(false);
+  const handleClose = () => setShow(false);
+  const handleShow = () => setShow(true); 
+  const handleMidiInputChange = useCallback((e) => {
+    webmidiInput.current.channels[1].removeListener("noteon", onNote);
+    webmidiIndex.current = e.target.value;
+    webmidiInput.current = WebMidi.inputs[webmidiIndex.current];
+    webmidiInput.current.channels[1].addListener("noteon", onNote);
+  });
+
 
   useEffect(() => {
     setBlobInfo([]);
@@ -258,14 +272,9 @@ export default function Recorder({ submit, accompaniment }) {
     if (WebMidi.inputs.length < 1 && recordingType == "midi") {
       console.error('tried to give permission, but no inputs')
     } else {
-      console.log("else statement");
-      setHasPermission(true);
-      console.log(hasPermission);
-      WebMidi.inputs.forEach((device, index) => {
-        console.log(device.name);
-        console.log(index);
-      });
-      webmidiInput.current = WebMidi.inputs[0]; // FIXME: we need to list the inputs from the loop above in the config ui so the user can select their thing
+      setHasPermission(true); 
+      webmidiIndex.current = 0;
+      webmidiInput.current = WebMidi.inputs[webmidiIndex.current]; // FIXME: we need to list the inputs from the loop above in the config ui so the user can select their thing
       webmidiInput.current.channels[1].addListener("noteon", onNote);
     }
   }
@@ -298,6 +307,19 @@ export default function Recorder({ submit, accompaniment }) {
     });  
     // }
    
+  }
+
+  function MidiTable() { 
+    return (
+      <label>
+        Pick Midi Device
+        <select value={webmidiIndex.current} onChange={handleMidiInputChange}>
+          {WebMidi.inputs.map((device, index) => (
+            <option key={device.name} value={index}>{device.name}</option>
+          ))}
+        </select>
+      </label>
+    )
   }
 
 
@@ -576,25 +598,40 @@ export default function Recorder({ submit, accompaniment }) {
             </Button>
           ) : (
               <>
-                {recordingType === "mic" ? (
-                  <>
-                  <Button onClick={startRecording}> {/*idk about the disabled here */}
+                <Button onClick={startRecording} disabled={!hasPermission}> {/*idk about the disabled here */}
                   <FaMicrophone />
-                  </Button>
-                  <Config RecordingTypeChanged={handleRecordingTypeChange} value={recordingType}></Config>
-                  </>
-                ) : (
-                  <>
-                    <Button onClick={startRecording} disabled={!hasPermission} > {/*idk about the disabled here */}
-                    <FaMicrophone />
-                    </Button>
-                    <Button disabled={!isSamplerLoaded} onClick={enableMidiTone}>Enable Midi or Keyboard</Button>
-                    <Config RecordingTypeChanged={handleRecordingTypeChange} value={recordingType}></Config>
-                  </>
- 
-                )}
-               
-              </>
+                </Button>
+                {/*<Config RecordingTypeChanged={handleRecordingTypeChange} value={recordingType}></Config>*/}
+                <Button variant="secondary" onClick={handleShow}> 
+                  <IoSettingsSharp>
+
+                  </IoSettingsSharp>
+                </Button>
+                <Modal show={show} onHide={handleClose}>
+                  <Modal.Header>
+                    <Modal.Title> Recording Settings</Modal.Title>
+                  </Modal.Header> 
+                  <Modal.Body>
+                    <div className="row">
+                      <div className="col d-flex flex-column align-items-center">
+                        <Config RecordingTypeChanged={handleRecordingTypeChange} value={recordingType}></Config>
+                        {(recordingType === "midi" || recordingType === "keyboard") && (
+                          <Button variant="primary" onClick={enableMidiTone}>Enable Midi and Keyboard</Button>
+                        )}
+                      {hasPermission && (
+                          <MidiTable></MidiTable>
+                      )}
+
+                      </div>
+                    </div>
+                  </Modal.Body>
+                  <Modal.Footer>
+                    <Button variant="secondary" onClick={handleClose}>Close</Button>
+                    {/* do something about save changes */}
+                    <Button variant="primary" onClick={handleClose}>Save Changes</Button>
+                  </Modal.Footer>
+                </Modal>
+              </> 
           )}
         </Col>
       </Row>
