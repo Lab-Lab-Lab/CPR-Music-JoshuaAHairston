@@ -172,3 +172,22 @@ export function getAssignedPieces(assignments) {
     return pieces;
   };
 }
+
+export async function getInstrumentConfigurations() {
+  const endpoint = "configs/";
+  const json = await makeRequest(endpoint);
+  return json;
+}
+
+export async function mutateInstrumentConfiguration(config_id, instrument_config_update) {
+  const endpoint = `configs/${config_id}`;
+  //should I recontruct the body here myself, or do it in the recorder code?
+  const json = await makeRequest(endpoint, 'PATCH', instrument_config_update);
+  return json;
+}
+
+export async function createInstrumentConfiguration(instrument_config) {
+  const endpoint = `configs/`;
+  const json = await makeRequest(endpoint, 'POST', instrument_config);
+  return json;
+}
