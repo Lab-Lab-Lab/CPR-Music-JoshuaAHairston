@@ -1,6 +1,6 @@
 // with thanks to https://medium.com/front-end-weekly/recording-audio-in-mp3-using-reactjs-under-5-minutes-5e960defaf10
 
-import { Sampler, Recorder as toneRecorder, getDestination, loaded, start  } from "tone";
+import { Sampler, Recorder as toneRecorder, getDestination, loaded, start, Midi  } from "tone";
 import { WebMidi } from "webmidi";
 import MicRecorder from 'mic-recorder-to-mp3';
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -32,6 +32,7 @@ import WaveSurfer from 'wavesurfer.js';
 import { UploadStatusEnum } from '../types';
 import StatusIndicator from './statusIndicator';
 import styles from '../styles/recorder.module.css';
+import { getInstrumentConfigurations, mutateInstrumentConfiguration, createInstrumentConfiguration } from "../api";
 function Config({ RecordingTypeChanged, value }) {
   return (
     <label>
@@ -44,6 +45,13 @@ function Config({ RecordingTypeChanged, value }) {
     </label>
   );
 }
+//TODO: maybe I should put this somewhere else?
+const emptyDraft = () => ({
+  name: "",
+  description: "",
+  settings: {},
+});
+
 function AudioViewer({ src }) {
   const containerW = useRef(null);
   const waveSurf = useRef(null);
@@ -307,6 +315,199 @@ export default function Recorder({ submit, accompaniment }) {
     });  
     // }
    
+  }
+  function InstrumentConfigEditor({show, onSaved = null}) {
+    const [configs, setConfigs] = useState([]);
+    const [selectedId, setSelectedId] = useState(null);
+    const [draft, setDraft] = useState(emptyDraft());
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState("");
+
+    // on load of the modal, we should fetch the instrument configs each time?
+    useEffect(() => {
+      if (!show) {
+        return;
+      }
+      (async () => {
+        setError("");
+        setLoading(true);
+        try {
+          const res = await getInstrumentConfigurations() 
+          setConfigs(res);
+          //TODO: remember the last selected config?
+          if (res.length > 0) {
+            setSelectedId(res[0].id);
+            setDraft({
+              name: res[0].name,
+              description: res[0].description,
+              // TODO: settings will stay like this until I get it working
+              settings: {},
+            });
+          }
+          else {
+            setSelectedId(null);
+            setDraft(emptyDraft());
+          }
+        } catch (error) {
+          //TODO: IDK how this works, look into it
+          setError(String(error));
+        } finally {
+          setLoading(false);
+        }
+      })();
+
+    }, [show]);
+
+    const onSelectedConfig = (id) => {
+      setSelectedId(id);
+      const config = configs.find((c) => c.id === id);
+
+      //IDK about this check, look into it later
+      if (!config) return;
+
+      // Maybe figure out if we need to do null checks here later
+      setDraft({
+        name: config.name,
+        description: config.description,
+        settings: {},
+      });
+    };
+
+    const onNew = () => {
+      setSelectedId(null);
+      setDraft(emptyDraft());
+    }
+
+    const save = async () => {
+      setError("");
+      setSaving(true);
+
+      const payload = {
+        name: draft.name.trim(),
+        description: draft.description.trim(),
+        settings: draft.settings,
+      };
+
+      //We want to patch existing configs, post new ones
+      const isEdit = selectedId !== null;
+      const method = isEdit ? "PATCH" : "POST";
+
+      try {
+        let res;
+        if (method === "PATCH") {
+          // res is the updated config
+          res = await mutateInstrumentConfiguration(selectedId, payload);
+        // Postings new config
+        } else {
+          // res is the created config
+          res = await createInstrumentConfiguration(payload);
+        }
+        console.log(`res from saving config: ${JSON.stringify(res)}`);
+        // this is only the updated or created config        
+        // Update the local list of configs post and patch only return what was changed, not the full list
+        const res2 = await getInstrumentConfigurations();
+        setConfigs(res2);
+        // we want it to make the updated or created config the selected one
+        console.log(`checking res2 (updated config list): ${JSON.stringify(res2)}`);
+
+        setSelectedId(res.id);
+        setDraft({
+          name: res.name,
+          description: res.description,
+          //have this for now until I figure out settings
+          settings: {},
+        });
+
+        // this is a function refference passed from the parent to let it know we saved successfully
+        if (onSaved) {
+          //
+          onSaved();
+        }
+
+
+      } catch (error) {
+        setError(String(error));
+    } finally {
+        setSaving(false);
+      }
+    };
+
+    //Add the UI for editing instrument configs here
+    if (loading) {
+      return <div>Loading configurations...</div>;
+    }
+
+    if (error) {
+      return <div style={{ color: 'red' }}>Error: {error}</div>;
+    }
+
+    return (
+      <div>
+        <div style={{ display: 'flex', marginBottom: '1rem', justifyContent: 'center', alignItems: 'center', marginTop: '1rem', borderTop: '2px solid lightgray', paddingTop: '1rem' }}>
+          <Button onClick={onNew} variant="primary">New Config</Button>
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label>
+            Select Configuration:
+            <select 
+              value={selectedId ?? ""} 
+              onChange={(e) => onSelectedConfig(Number(e.target.value))}
+              style={{ marginLeft: '0.5rem' }}
+              disabled={configs.length === 0}
+            >
+              {configs.length === 0 ? (
+                <option value="">-- No configs available --</option>
+              ) : (
+                <>
+                  <option value="">-- Select a config --</option>
+                  {configs.map((config) => (
+                    <option key={config.id} value={config.id}>
+                      {config.name || `Config ${config.id}`}
+                    </option>
+                  ))}
+                </>
+              )}
+            </select>
+          </label>
+        </div>
+
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+          <div style={{ flex: 1 }}>
+            <label>
+              Name:
+              <input
+                type="text"
+                value={draft.name}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                style={{ width: '100%', marginTop: '0.25rem' }}
+              />
+            </label>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label>
+              Description:
+              <input
+                type="text"
+                value={draft.description}
+                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                style={{ width: '100%', marginTop: '0.25rem' }}
+              />
+            </label>
+          </div>
+        </div>
+        <div style={{display: 'flex', justifyContent: 'center'}}>
+        <MidiTable></MidiTable>
+        </div>
+        <div>
+          <Button onClick={save} disabled={saving} variant="success">
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </div>
+      </div>
+    );
+
   }
 
   function MidiTable() { 
@@ -619,7 +820,10 @@ export default function Recorder({ submit, accompaniment }) {
                           <Button variant="primary" onClick={enableMidiTone}>Enable Midi and Keyboard</Button>
                         )}
                       {hasPermission && (
-                          <MidiTable></MidiTable>
+                        <>
+                        <InstrumentConfigEditor show={show} onSaved={handleClose}></InstrumentConfigEditor>
+                        </>
+
                       )}
 
                       </div>
@@ -627,8 +831,6 @@ export default function Recorder({ submit, accompaniment }) {
                   </Modal.Body>
                   <Modal.Footer>
                     <Button variant="secondary" onClick={handleClose}>Close</Button>
-                    {/* do something about save changes */}
-                    <Button variant="primary" onClick={handleClose}>Save Changes</Button>
                   </Modal.Footer>
                 </Modal>
               </> 
