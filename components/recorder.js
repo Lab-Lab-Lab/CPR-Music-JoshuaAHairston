@@ -260,13 +260,7 @@ export default function Recorder({ submit, accompaniment }) {
   });
   const [show, setShow] = useState(false);
   const handleClose = () => setShow(false);
-  const handleShow = () => setShow(true); 
-  const handleMidiInputChange = useCallback((e) => {
-    webmidiInput.current.channels[1].removeListener("noteon", onNote);
-    webmidiIndex.current = e.target.value;
-    webmidiInput.current = WebMidi.inputs[webmidiIndex.current];
-    webmidiInput.current.channels[1].addListener("noteon", onNote);
-  });
+  const handleShow = () => setShow(true);
 
 
   useEffect(() => {
@@ -305,11 +299,9 @@ export default function Recorder({ submit, accompaniment }) {
       note += e.note.accidental;
     }
     note += e.note.octave;
-    console.log(e);
     // sampler.current.triggerAttackRelease(note, 4);
-    console.log(hasPermission);
     // if(hasPermission === true) {
-    console.log("Hello permission is true");
+    console.log("note on: ", note);
     loaded().then(() => {
       sampler.current.triggerAttackRelease(note, 4);
     });  
@@ -341,8 +333,7 @@ export default function Recorder({ submit, accompaniment }) {
             setDraft({
               name: res[0].name,
               description: res[0].description,
-              // TODO: settings will stay like this until I get it working
-              settings: {},
+              settings: res[0].settings,
             });
           }
           else {
@@ -350,7 +341,6 @@ export default function Recorder({ submit, accompaniment }) {
             setDraft(emptyDraft());
           }
         } catch (error) {
-          //TODO: IDK how this works, look into it
           setError(String(error));
         } finally {
           setLoading(false);
@@ -360,23 +350,72 @@ export default function Recorder({ submit, accompaniment }) {
     }, [show]);
 
     const onSelectedConfig = (id) => {
+      console.log("yo");
       setSelectedId(id);
       const config = configs.find((c) => c.id === id);
 
-      //IDK about this check, look into it later
       if (!config) return;
 
-      // Maybe figure out if we need to do null checks here later
       setDraft({
         name: config.name,
         description: config.description,
-        settings: {},
+        settings: config.settings,
       });
+      
+      // If there's a saved MIDI device, set it as the active input
+      if (config.settings?.midiDeviceName) {
+        console.log("Config has saved MIDI device:", config.settings.midiDeviceName);
+        const deviceIndex = WebMidi.inputs.findIndex(input => input.name === config.settings.midiDeviceName);
+        if (deviceIndex !== -1) {
+          console.log("Found MIDI device index:", deviceIndex);
+          // Remove listener from old device if it exists
+          if (webmidiInput.current) {
+            webmidiInput.current.channels[1].removeListener("noteon", onNote);
+          }
+          
+          webmidiIndex.current = deviceIndex;
+          webmidiInput.current = WebMidi.inputs[deviceIndex];
+          webmidiInput.current.channels[1].addListener("noteon", onNote);
+        }
+      }
     };
 
     const onNew = () => {
       setSelectedId(null);
       setDraft(emptyDraft());
+    }
+
+    const handleMidiDeviceChange = (e) => {
+      const deviceName = e.target.value;
+      
+      // Update the draft settings
+      setDraft({
+        ...draft,
+        settings: {
+          ...draft.settings,
+          midiDeviceName: deviceName,
+        },
+      });
+      
+      // Also update the active MIDI input immediately
+      if (deviceName) {
+        const deviceIndex = WebMidi.inputs.findIndex(input => input.name === deviceName);
+        
+        if (deviceIndex === -1) {
+          console.error(`MIDI device "${deviceName}" not found`);
+          return;
+        }
+        console.log("Selected MIDI device index:", deviceIndex); 
+        // Remove listener from old device if it exists
+        if (webmidiInput.current) {
+          webmidiInput.current.channels[1].removeListener("noteon", onNote);
+        }
+        
+        // Update to new device
+        webmidiIndex.current = deviceIndex;
+        webmidiInput.current = WebMidi.inputs[deviceIndex];
+        webmidiInput.current.channels[1].addListener("noteon", onNote);
+      }
     }
 
     const save = async () => {
@@ -415,13 +454,12 @@ export default function Recorder({ submit, accompaniment }) {
         setDraft({
           name: res.name,
           description: res.description,
-          //have this for now until I figure out settings
-          settings: {},
+          settings: res.settings,
         });
 
         // this is a function refference passed from the parent to let it know we saved successfully
         if (onSaved) {
-          //
+          // This closes the modal.
           onSaved();
         }
 
@@ -497,8 +535,11 @@ export default function Recorder({ submit, accompaniment }) {
             </label>
           </div>
         </div>
-        <div style={{display: 'flex', justifyContent: 'center'}}>
-        <MidiTable></MidiTable>
+        <div style={{display: 'flex', justifyContent: 'center', marginBottom: '1rem'}}>
+          <MidiTable 
+            value={draft.settings?.midiDeviceName || ""} 
+            onChange={handleMidiDeviceChange}
+          />
         </div>
         <div>
           <Button onClick={save} disabled={saving} variant="success">
@@ -510,13 +551,18 @@ export default function Recorder({ submit, accompaniment }) {
 
   }
 
-  function MidiTable() { 
+  function MidiTable({ value, onChange }) { 
     return (
       <label>
         Pick Midi Device
-        <select value={webmidiIndex.current} onChange={handleMidiInputChange}>
-          {WebMidi.inputs.map((device, index) => (
-            <option key={device.name} value={index}>{device.name}</option>
+        <select 
+          value={value || ""} 
+          onChange={onChange}
+          style={{ width: '100%', marginTop: '0.25rem' }}
+        >
+          <option value="">-- Select a MIDI device --</option>
+          {WebMidi.inputs.map((device) => (
+            <option key={device.id} value={device.name}>{device.name}</option>
           ))}
         </select>
       </label>

@@ -180,7 +180,7 @@ export async function getInstrumentConfigurations() {
 }
 
 export async function mutateInstrumentConfiguration(config_id, instrument_config_update) {
-  const endpoint = `configs/${config_id}`;
+  const endpoint = `configs/${config_id}/`;
   //should I recontruct the body here myself, or do it in the recorder code?
   const json = await makeRequest(endpoint, 'PATCH', instrument_config_update);
   return json;
