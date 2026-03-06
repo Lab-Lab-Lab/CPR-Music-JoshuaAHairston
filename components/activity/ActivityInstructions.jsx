@@ -6,7 +6,7 @@
 
 import { Card, Form, Alert } from 'react-bootstrap';
 import { FaCheckCircle, FaLock } from 'react-icons/fa';
-import { useState, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
 export default function ActivityInstructions({
   step,
@@ -17,22 +17,22 @@ export default function ActivityInstructions({
   onResponseChange,
 }) {
   const [localResponses, setLocalResponses] = useState(questionResponses);
+  const debounceTimers = useRef({});
 
-  useEffect(() => {
-    setLocalResponses(questionResponses);
-  }, [questionResponses]);
-
-  const handleChange = (questionId, value) => {
+  const handleChange = useCallback((questionId, value) => {
     setLocalResponses((prev) => ({
       ...prev,
       [questionId]: value,
     }));
 
-    // Debounce the save
+    // Debounce the API save to avoid excessive requests
     if (onResponseChange) {
-      onResponseChange(questionId, value);
+      clearTimeout(debounceTimers.current[questionId]);
+      debounceTimers.current[questionId] = setTimeout(() => {
+        onResponseChange(questionId, value);
+      }, 500);
     }
-  };
+  }, [onResponseChange]);
 
   const isQuestionUnlocked = (question) => {
     if (!question.requiredOperation) return true;

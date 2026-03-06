@@ -125,15 +125,15 @@ export function useActivityProgress({ slug, assignmentId, initialStep = 1, email
   const saveResponse = useCallback(async (questionId, response) => {
     if (!slug || !assignmentId) return;
 
+    // Update local state optimistically before the API call
+    setQuestionResponses(prev => ({
+      ...prev,
+      [questionId]: response,
+    }));
+
     try {
       const saveResponseFn = mutateSaveQuestionResponse({ slug, assignmentId });
       const updatedProgress = await saveResponseFn({ questionId, response });
-
-      // Update local state
-      setQuestionResponses(prev => ({
-        ...prev,
-        [questionId]: response,
-      }));
 
       return updatedProgress;
     } catch (error) {
