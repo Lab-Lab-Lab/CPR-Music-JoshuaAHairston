@@ -5,6 +5,10 @@ module.exports = {
         source: '/backend/:rest*',
         destination: `${process.env.NEXT_PUBLIC_BACKEND_HOST}/:rest*`,
       },
+      {
+        source: '/ffmpeg-core/:path*',
+        destination: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/:path*',
+      },
     ];
   },
   eslint: {

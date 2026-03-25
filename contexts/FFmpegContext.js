@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { toBlobURL } from '@ffmpeg/util';
 
 const FFmpegContext = createContext();
 
@@ -33,12 +32,11 @@ export const FFmpegProvider = ({ children }) => {
     setIsLoading(true);
     
     try {
-      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
       const ffmpeg = ffmpegRef.current;
-      
+
       await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        coreURL: '/ffmpeg-core/ffmpeg-core.js',
+        wasmURL: '/ffmpeg-core/ffmpeg-core.wasm',
       });
       
       setLoaded(true);
