@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchActivities, fetchSingleStudentAssignment } from '../../../../../../../actions';
 import StudentAssignment from '../../../../../../../components/student/assignment';
-import { DAWProvider } from '../../../../../../../contexts/DAWProvider';
+import { DAWProvider, useAudio, useUI } from '../../../../../../../contexts/DAWProvider';
 import { useActivityProgress } from '../../../../../../../hooks/useActivityProgress';
 import {
   ActivityLayout,
@@ -19,6 +19,24 @@ import {
   ConsentReminderModal,
 } from '../../../../../../../components/activity';
 import { getActivityConfig } from '../../../../../../../lib/activity/activityConfigs';
+
+/**
+ * Sets showDAW and dawMode when rendered inside DAWProvider.
+ * Must be a child of DAWProvider since it needs context access.
+ */
+function DAWInitializer({ multitrack }) {
+  const { setShowDAW } = useUI();
+  const { setDawMode } = useAudio();
+
+  useEffect(() => {
+    setShowDAW(true);
+    if (multitrack) {
+      setDawMode('multi');
+    }
+  }, [multitrack, setShowDAW, setDawMode]);
+
+  return null;
+}
 
 // Dynamically import components
 const FlatEditor = dynamic(() => import('../../../../../../../components/flatEditor'), {
@@ -263,11 +281,15 @@ export default function ActivityPage() {
     completedOpsArray: [...completedOps] // Expand the array to see actual values
   });
 
-  // Pre-populate bassline for Activity 3
-  const initialTracks = stepNumber === 3 ? [{
-    name: 'Air for Band - Bassline',
+  // Pre-populate bassline track for Activity 3 using the assignment's sample audio
+  const basslineName = assignment?.part?.piece?.name
+    ? `${assignment.part.piece.name} - Bassline`
+    : 'Bassline';
+  const basslineURL = preferredSample || null;
+  const initialTracks = (stepNumber === 3 && basslineURL) ? [{
+    name: basslineName,
     type: 'audio',
-    audioURL: '/media/sample_audio/Air_for_Band_Bass_Line.mp3',
+    audioURL: basslineURL,
     volume: 1,
     pan: 0,
     muted: false,
@@ -277,13 +299,17 @@ export default function ActivityPage() {
       start: 0,
       duration: 0, // Will be set when audio loads
       color: '#4a9eff',
-      src: '/media/sample_audio/Air_for_Band_Bass_Line.mp3',
+      src: basslineURL,
       offset: 0,
-      name: 'Air for Band - Bassline',
+      name: basslineName,
     }],
   }] : [];
 
-  if (isLoading) {
+  // Wait for activity progress to load, and for Activity 3 also wait for the
+  // sample audio URL so initialTracks is populated before MultitrackProvider mounts
+  // (useState only reads initialTracks on first mount — late arrivals are ignored)
+  const awaitingSample = stepNumber === 3 && !preferredSample && !!assignment;
+  if (isLoading || awaitingSample) {
     return (
       <StudentAssignment assignment={assignment}>
         <div className="text-center py-5">
@@ -301,6 +327,11 @@ export default function ActivityPage() {
         initialTracks={initialTracks}
         persistenceConfig={audioPersistenceConfig}
       >
+        {/* Initialize DAW visibility and mode for multitrack activities */}
+        {(stepNumber === 3 || stepNumber === 4) && (
+          <DAWInitializer multitrack />
+        )}
+
         {/* Consent Modal */}
         <ConsentReminderModal
           show={showConsentModal}
@@ -361,7 +392,6 @@ export default function ActivityPage() {
               onSubmit={null} // No submission from DAW itself in study mode
               showSubmitButton={false} // Hide DAW's submit button
               logOperation={logOperation} // Pass operation logger to DAW
-              initialTracks={initialTracks} // Pre-populate tracks for Activity 3
             />
           )}
         </ActivityLayout>
