@@ -37,7 +37,6 @@ export default function DAW({
   showSubmitButton = false,
   silenceWarning = false,
   logOperation = null, // For study protocol tracking
-  initialTracks = [], // Pre-populated tracks for specific activities
 }) {
   const { audioURL, dawMode, setDawMode, activityLogger } = useAudio();
   const { loadFFmpeg, loaded: ffmpegLoaded } = useFFmpeg();
