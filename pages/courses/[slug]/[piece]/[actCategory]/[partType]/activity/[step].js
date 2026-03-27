@@ -281,11 +281,15 @@ export default function ActivityPage() {
     completedOpsArray: [...completedOps] // Expand the array to see actual values
   });
 
-  // Pre-populate bassline track for Activity 3 using the assignment's sample audio
-  const basslineName = assignment?.part?.piece?.name
-    ? `${assignment.part.piece.name} - Bassline`
+  // Pre-populate bassline track for Activity 3 from the Bassline assignment
+  // (not from preferredSample, which is the Melody part's sample)
+  const basslineAssignment = loadedActivities
+    ? activities[piece]?.find((a) => a.part_type === 'Bassline')
+    : null;
+  const basslineURL = basslineAssignment?.part?.sample_audio || null;
+  const basslineName = basslineAssignment?.part?.piece?.name
+    ? `${basslineAssignment.part.piece.name} - Bassline`
     : 'Bassline';
-  const basslineURL = preferredSample || null;
   const initialTracks = (stepNumber === 3 && basslineURL) ? [{
     name: basslineName,
     type: 'audio',
@@ -305,11 +309,10 @@ export default function ActivityPage() {
     }],
   }] : [];
 
-  // Wait for activity progress to load, and for Activity 3 also wait for the
-  // sample audio URL so initialTracks is populated before MultitrackProvider mounts
-  // (useState only reads initialTracks on first mount — late arrivals are ignored)
-  const awaitingSample = stepNumber === 3 && !preferredSample && !!assignment;
-  if (isLoading || awaitingSample) {
+  // Wait for activity progress and activities list to load before mounting
+  // DAWProvider — useState(initialTracks) only reads on first mount
+  const awaitingBassline = stepNumber === 3 && !loadedActivities;
+  if (isLoading || awaitingBassline) {
     return (
       <StudentAssignment assignment={assignment}>
         <div className="text-center py-5">
