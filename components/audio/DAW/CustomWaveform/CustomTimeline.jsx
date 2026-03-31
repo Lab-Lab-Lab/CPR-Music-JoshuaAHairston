@@ -79,8 +79,8 @@ export default function CustomTimeline() {
 
       // Log for study protocol (retain/scissor operation)
       if (logOperation) {
-        logOperation('clip_cut', { start: activeRegion.start, end: activeRegion.end });
-        logOperation('region_retained', { start: activeRegion.start, end: activeRegion.end });
+        await logOperation('clip_cut', { start: activeRegion.start, end: activeRegion.end });
+        await logOperation('region_retained', { start: activeRegion.start, end: activeRegion.end });
       }
 
     } catch (error) {
@@ -119,18 +119,19 @@ export default function CustomTimeline() {
       await applyProcessedAudio(cutBuffer);
 
       // Log for study protocol (delete operation)
+      // Operations must be awaited sequentially to avoid backend race conditions
       if (logOperation) {
         console.log('🎯 Logging clip_delete operation:', { start: activeRegion.start, end: activeRegion.end });
-        logOperation('clip_delete', { start: activeRegion.start, end: activeRegion.end });
+        await logOperation('clip_delete', { start: activeRegion.start, end: activeRegion.end });
 
         // Also log silence trimming if applicable
         if (isStartTrim) {
           console.log('🎯 Logging silence_trimmed_start operation');
-          logOperation('silence_trimmed_start', { region: activeRegion });
+          await logOperation('silence_trimmed_start', { region: activeRegion });
         }
         if (isEndTrim) {
           console.log('🎯 Logging silence_trimmed_end operation');
-          logOperation('silence_trimmed_end', { region: activeRegion });
+          await logOperation('silence_trimmed_end', { region: activeRegion });
         }
       } else {
         console.warn('⚠️ logOperation is not available for clip_delete');
@@ -195,15 +196,15 @@ export default function CustomTimeline() {
       <div className="d-flex align-items-center">
         <Button
           className="prog-button pr-2"
-          onClick={() => {
+          onClick={async () => {
             undo();
             // Log for study protocol
             if (logOperation) {
-              logOperation('undo_action', {});
+              await logOperation('undo_action', {});
 
               // Check if we've restored to original state (Activity 2 requirement)
               if (isRestoredToOriginal && isRestoredToOriginal()) {
-                logOperation('audio_restored', {
+                await logOperation('audio_restored', {
                   message: 'Audio restored to original state via undo'
                 });
               }
