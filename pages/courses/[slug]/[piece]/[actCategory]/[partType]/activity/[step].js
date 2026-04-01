@@ -285,7 +285,12 @@ export default function ActivityPage() {
   const basslineAssignment = loadedActivities
     ? activities[piece]?.find((a) => a.part_type === 'Bassline')
     : null;
-  const basslineURL = basslineAssignment?.part?.sample_audio || null;
+  // Convert absolute backend URL to relative /media/... path so it routes through
+  // Next.js rewrite proxy (avoids CORS issues with cross-origin fetch/decodeAudioData)
+  const rawBasslineURL = basslineAssignment?.part?.sample_audio || null;
+  const basslineURL = rawBasslineURL
+    ? rawBasslineURL.replace(/^https?:\/\/[^/]+/, '') // strip origin, keep /media/...
+    : null;
   const sampleTakes = (stepNumber === 3 && basslineURL) ? [{
     id: 'sample-bassline',
     name: basslineAssignment?.part?.piece?.name
