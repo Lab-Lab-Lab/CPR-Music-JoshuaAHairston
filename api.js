@@ -179,15 +179,52 @@ export async function getInstrumentConfigurations() {
   return json;
 }
 
-export async function mutateInstrumentConfiguration(config_id, instrument_config_update) {
+// When audioFile is provided, sends as multipart/form-data so Django's FileField can process it.
+// Otherwise sends as JSON like before.
+export async function mutateInstrumentConfiguration(config_id, instrument_config_update, audioFile = null) {
   const endpoint = `configs/${config_id}/`;
-  //should I recontruct the body here myself, or do it in the recorder code?
+  if (audioFile) {
+    const formData = buildConfigFormData(instrument_config_update, audioFile);
+    return makeFormDataRequest(endpoint, 'PATCH', formData);
+  }
   const json = await makeRequest(endpoint, 'PATCH', instrument_config_update);
   return json;
 }
 
-export async function createInstrumentConfiguration(instrument_config) {
+export async function createInstrumentConfiguration(instrument_config, audioFile = null) {
   const endpoint = `configs/`;
+  if (audioFile) {
+    const formData = buildConfigFormData(instrument_config, audioFile);
+    return makeFormDataRequest(endpoint, 'POST', formData);
+  }
   const json = await makeRequest(endpoint, 'POST', instrument_config);
   return json;
+}
+
+function buildConfigFormData(config, audioFile) {
+  const formData = new FormData();
+  formData.append('name', config.name);
+  formData.append('description', config.description);
+  formData.append('settings', JSON.stringify(config.settings));
+  formData.append('file', audioFile);
+  return formData;
+}
+
+async function makeFormDataRequest(endpoint, method, formData) {
+  const token = await getDjangoToken();
+  if (!token) return {};
+
+  const API = `${process.env.NEXT_PUBLIC_BACKEND_HOST}/api`;
+  const url = `${API}/${endpoint}`;
+
+  const response = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Token ${token}`,
+    },
+    body: formData,
+  });
+
+  assertResponse(response);
+  return response.json();
 }

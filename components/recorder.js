@@ -50,6 +50,7 @@ const emptyDraft = () => ({
   name: "",
   description: "",
   settings: {},
+  file: null,
 });
 
 function AudioViewer({ src }) {
@@ -233,6 +234,277 @@ function AudioViewer({ src }) {
 }
 
 
+function MidiTable({ value, onChange }) {
+  return (
+    <label>
+      Pick Midi Device
+      <select
+        value={value || ""}
+        onChange={onChange}
+        style={{ width: '100%', marginTop: '0.25rem' }}
+      >
+        <option value="">-- Select a MIDI device --</option>
+        {WebMidi.inputs.map((device) => (
+          <option key={device.id} value={device.name}>{device.name}</option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+function InstrumentConfigEditor({show, onSaved = null, onAudioFileChange = null, onMidiDeviceSelect = null}) {
+  const [configs, setConfigs] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [draft, setDraft] = useState(emptyDraft());
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!show) {
+      return;
+    }
+    (async () => {
+      setError("");
+      setLoading(true);
+      try {
+        const res = await getInstrumentConfigurations()
+        setConfigs(res);
+        //TODO: remember the last selected config?
+        if (res.length > 0) {
+          setSelectedId(res[0].id);
+          setDraft({
+            name: res[0].name,
+            description: res[0].description,
+            settings: res[0].settings,
+            file: res[0].file || null,
+          });
+          if (onAudioFileChange) {
+            onAudioFileChange(res[0].file || null);
+          }
+        }
+        else {
+          setSelectedId(null);
+          setDraft(emptyDraft());
+          if (onAudioFileChange) {
+            onAudioFileChange(null);
+          }
+        }
+      } catch (error) {
+        setError(String(error));
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+  }, [show]);
+
+  const onSelectedConfig = (id) => {
+    setSelectedId(id);
+    const config = configs.find((c) => c.id === id);
+
+    if (!config) return;
+
+    setDraft({
+      name: config.name,
+      description: config.description,
+      settings: config.settings,
+      file: config.file || null,
+    });
+    if (onAudioFileChange) {
+      onAudioFileChange(config.file || null);
+    }
+    // If there's a saved MIDI device, set it as the active input
+    if (config.settings?.midiDeviceName && onMidiDeviceSelect) {
+      onMidiDeviceSelect(config.settings.midiDeviceName);
+    }
+  };
+  //TODO: Maybe put this in the useeffect? (like use it there as there's repeated code)
+  const onNew = () => {
+    setSelectedId(null);
+    setDraft(emptyDraft());
+    if (onAudioFileChange) {
+      onAudioFileChange(null);
+    }
+  }
+
+  const handleMidiDeviceChange = (e) => {
+    const deviceName = e.target.value;
+
+    // Update the draft settings
+    setDraft({
+      ...draft,
+      settings: {
+        ...draft.settings,
+        midiDeviceName: deviceName,
+      },
+    });
+
+    // Also update the active MIDI input immediately
+    if (deviceName && onMidiDeviceSelect) {
+      onMidiDeviceSelect(deviceName);
+    }
+  }
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0] || null;
+    setDraft({ ...draft, file: file });
+  };
+
+  const save = async () => {
+    setError("");
+    setSaving(true);
+
+    const payload = {
+      name: draft.name.trim(),
+      description: draft.description.trim(),
+      settings: draft.settings,
+    };
+
+    //We want to patch existing configs, post new ones
+    const isEdit = selectedId !== null;
+    const method = isEdit ? "PATCH" : "POST";
+
+    const audioFile = draft.file instanceof File ? draft.file : null;
+
+    try {
+      let res;
+      if (method === "PATCH") {
+        // res is the updated config
+        res = await mutateInstrumentConfiguration(selectedId, payload, audioFile);
+      // Postings new config
+      } else {
+        // res is the created config
+        res = await createInstrumentConfiguration(payload, audioFile);
+      }
+      console.log(`res from saving config: ${JSON.stringify(res)}`);
+      // this is only the updated or created config
+      // Update the local list of configs post and patch only return what was changed, not the full list
+      const res2 = await getInstrumentConfigurations();
+      setConfigs(res2);
+      // we want it to make the updated or created config the selected one
+      console.log(`checking res2 (updated config list): ${JSON.stringify(res2)}`);
+
+      setSelectedId(res.id);
+      setDraft({
+        name: res.name,
+        description: res.description,
+        settings: res.settings,
+        file: res.file || null,
+      });
+
+      if (onAudioFileChange) {
+        onAudioFileChange(res.file || null);
+      }
+
+      // this is a function refference passed from the parent to let it know we saved successfully
+      //TODO: I don't see a point in this if statement
+      if (onSaved) {
+        // This closes the modal.
+        onSaved();
+      }
+
+    } catch (error) {
+      setError(String(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div>Loading configurations...</div>;
+  }
+
+  if (error) {
+    return <div style={{ color: 'red' }}>Error: {error}</div>;
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', marginBottom: '1rem', justifyContent: 'center', alignItems: 'center', marginTop: '1rem', borderTop: '2px solid lightgray', paddingTop: '1rem' }}>
+        <Button onClick={onNew} variant="primary">New Config</Button>
+      </div>
+
+      <div style={{ marginBottom: '1rem' }}>
+        <label>
+          Select Configuration:
+          <select
+            value={selectedId ?? ""}
+            onChange={(e) => onSelectedConfig(Number(e.target.value))}
+            style={{ marginLeft: '0.5rem' }}
+            disabled={configs.length === 0}
+          >
+            {configs.length === 0 ? (
+              <option value="">-- No configs available --</option>
+            ) : (
+              <>
+                <option value="">-- Select a config --</option>
+                {configs.map((config) => (
+                  <option key={config.id} value={config.id}>
+                    {config.name || `Config ${config.id}`}
+                  </option>
+                ))}
+              </>
+            )}
+          </select>
+        </label>
+      </div>
+
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+        <div style={{ flex: 1 }}>
+          <label>
+            Name:
+            <input
+              type="text"
+              value={draft.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              style={{ width: '100%', marginTop: '0.25rem' }}
+            />
+          </label>
+        </div>
+        <div style={{ flex: 1 }}>
+          <label>
+            Description:
+            <input
+              type="text"
+              value={draft.description}
+              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              style={{ width: '100%', marginTop: '0.25rem' }}
+            />
+          </label>
+        </div>
+      </div>
+      <div style={{display: 'flex', justifyContent: 'center', marginBottom: '1rem'}}>
+        <MidiTable
+          value={draft.settings?.midiDeviceName || ""}
+          onChange={handleMidiDeviceChange}
+        />
+      </div>
+      <div style={{ marginBottom: '1rem' }}>
+        <label>
+          Audio Sample (C5, mp3 or wav):
+          <input
+            type="file"
+            accept=".mp3,.wav"
+            onChange={handleFileChange}
+            style={{ marginLeft: '0.5rem' }}
+          />
+        </label>
+        {typeof draft.file === 'string' && draft.file && (
+          <div style={{ marginTop: '0.25rem', fontSize: '0.85rem', color: 'gray' }}>
+            Current file: {draft.file}
+          </div>
+        )}
+      </div>
+      <div>
+        <Button onClick={save} disabled={saving} variant="success">
+          {saving ? 'Saving...' : 'Save'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function Recorder({ submit, accompaniment }) {
   // const Mp3Recorder = new MicRecorder({ bitRate: 128 }); // 128 is default already
   const [isRecording, setIsRecording] = useState(false);
@@ -259,6 +531,7 @@ export default function Recorder({ submit, accompaniment }) {
     setRecordingType(value);
   });
   const [show, setShow] = useState(false);
+  const [audioFileUrl, setAudioFileUrl] = useState(null);
   const handleClose = () => setShow(false);
   const handleShow = () => setShow(true);
 
@@ -272,7 +545,7 @@ export default function Recorder({ submit, accompaniment }) {
   function onEnabled() {
     
     if (WebMidi.inputs.length < 1 && recordingType == "midi") {
-      console.error('tried to give permission, but no inputs')
+      console.error('tried to give permission, but no inputs');
     } else {
       setHasPermission(true); 
       webmidiIndex.current = 0;
@@ -286,7 +559,7 @@ export default function Recorder({ submit, accompaniment }) {
     await WebMidi.enable().catch((err) => {
       alert(err);
       return;
-    })
+    });
     console.log("before start");
     await start();
     onEnabled();
@@ -303,271 +576,30 @@ export default function Recorder({ submit, accompaniment }) {
     // if(hasPermission === true) {
     console.log("note on: ", note);
     loaded().then(() => {
+      // would be nice for the user to have notes not play for the full duration
+      // once they stop holding the key
       sampler.current.triggerAttackRelease(note, 4);
     });  
-    // }
    
   }
-  function InstrumentConfigEditor({show, onSaved = null}) {
-    const [configs, setConfigs] = useState([]);
-    const [selectedId, setSelectedId] = useState(null);
-    const [draft, setDraft] = useState(emptyDraft());
-    const [loading, setLoading] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState("");
+  // InstrumentConfigEditor and MidiTable are defined outside of Recorder
 
-    // on load of the modal, we should fetch the instrument configs each time?
-    useEffect(() => {
-      if (!show) {
-        return;
-      }
-      (async () => {
-        setError("");
-        setLoading(true);
-        try {
-          const res = await getInstrumentConfigurations() 
-          setConfigs(res);
-          //TODO: remember the last selected config?
-          if (res.length > 0) {
-            setSelectedId(res[0].id);
-            setDraft({
-              name: res[0].name,
-              description: res[0].description,
-              settings: res[0].settings,
-            });
-          }
-          else {
-            setSelectedId(null);
-            setDraft(emptyDraft());
-          }
-        } catch (error) {
-          setError(String(error));
-        } finally {
-          setLoading(false);
-        }
-      })();
-
-    }, [show]);
-
-    const onSelectedConfig = (id) => {
-      console.log("yo");
-      setSelectedId(id);
-      const config = configs.find((c) => c.id === id);
-
-      if (!config) return;
-
-      setDraft({
-        name: config.name,
-        description: config.description,
-        settings: config.settings,
-      });
-      
-      // If there's a saved MIDI device, set it as the active input
-      if (config.settings?.midiDeviceName) {
-        console.log("Config has saved MIDI device:", config.settings.midiDeviceName);
-        const deviceIndex = WebMidi.inputs.findIndex(input => input.name === config.settings.midiDeviceName);
-        if (deviceIndex !== -1) {
-          console.log("Found MIDI device index:", deviceIndex);
-          // Remove listener from old device if it exists
-          if (webmidiInput.current) {
-            webmidiInput.current.channels[1].removeListener("noteon", onNote);
-          }
-          
-          webmidiIndex.current = deviceIndex;
-          webmidiInput.current = WebMidi.inputs[deviceIndex];
-          webmidiInput.current.channels[1].addListener("noteon", onNote);
-        }
-      }
-    };
-
-    const onNew = () => {
-      setSelectedId(null);
-      setDraft(emptyDraft());
+  const handleMidiDeviceSelect = (deviceName) => {
+    const deviceIndex = WebMidi.inputs.findIndex(input => input.name === deviceName);
+    if (deviceIndex === -1) {
+      console.error(`MIDI device "${deviceName}" not found`);
+      return;
     }
-
-    const handleMidiDeviceChange = (e) => {
-      const deviceName = e.target.value;
-      
-      // Update the draft settings
-      setDraft({
-        ...draft,
-        settings: {
-          ...draft.settings,
-          midiDeviceName: deviceName,
-        },
-      });
-      
-      // Also update the active MIDI input immediately
-      if (deviceName) {
-        const deviceIndex = WebMidi.inputs.findIndex(input => input.name === deviceName);
-        
-        if (deviceIndex === -1) {
-          console.error(`MIDI device "${deviceName}" not found`);
-          return;
-        }
-        console.log("Selected MIDI device index:", deviceIndex); 
-        // Remove listener from old device if it exists
-        if (webmidiInput.current) {
-          webmidiInput.current.channels[1].removeListener("noteon", onNote);
-        }
-        
-        // Update to new device
-        webmidiIndex.current = deviceIndex;
-        webmidiInput.current = WebMidi.inputs[deviceIndex];
-        webmidiInput.current.channels[1].addListener("noteon", onNote);
-      }
+    console.log("Selected MIDI device index:", deviceIndex);
+    // Remove listener from old device if it exists
+    if (webmidiInput.current) {
+      webmidiInput.current.channels[1].removeListener("noteon", onNote);
     }
-
-    const save = async () => {
-      setError("");
-      setSaving(true);
-
-      const payload = {
-        name: draft.name.trim(),
-        description: draft.description.trim(),
-        settings: draft.settings,
-      };
-
-      //We want to patch existing configs, post new ones
-      const isEdit = selectedId !== null;
-      const method = isEdit ? "PATCH" : "POST";
-
-      try {
-        let res;
-        if (method === "PATCH") {
-          // res is the updated config
-          res = await mutateInstrumentConfiguration(selectedId, payload);
-        // Postings new config
-        } else {
-          // res is the created config
-          res = await createInstrumentConfiguration(payload);
-        }
-        console.log(`res from saving config: ${JSON.stringify(res)}`);
-        // this is only the updated or created config        
-        // Update the local list of configs post and patch only return what was changed, not the full list
-        const res2 = await getInstrumentConfigurations();
-        setConfigs(res2);
-        // we want it to make the updated or created config the selected one
-        console.log(`checking res2 (updated config list): ${JSON.stringify(res2)}`);
-
-        setSelectedId(res.id);
-        setDraft({
-          name: res.name,
-          description: res.description,
-          settings: res.settings,
-        });
-
-        // this is a function refference passed from the parent to let it know we saved successfully
-        if (onSaved) {
-          // This closes the modal.
-          onSaved();
-        }
-
-
-      } catch (error) {
-        setError(String(error));
-    } finally {
-        setSaving(false);
-      }
-    };
-
-    //Add the UI for editing instrument configs here
-    if (loading) {
-      return <div>Loading configurations...</div>;
-    }
-
-    if (error) {
-      return <div style={{ color: 'red' }}>Error: {error}</div>;
-    }
-
-    return (
-      <div>
-        <div style={{ display: 'flex', marginBottom: '1rem', justifyContent: 'center', alignItems: 'center', marginTop: '1rem', borderTop: '2px solid lightgray', paddingTop: '1rem' }}>
-          <Button onClick={onNew} variant="primary">New Config</Button>
-        </div>
-
-        <div style={{ marginBottom: '1rem' }}>
-          <label>
-            Select Configuration:
-            <select 
-              value={selectedId ?? ""} 
-              onChange={(e) => onSelectedConfig(Number(e.target.value))}
-              style={{ marginLeft: '0.5rem' }}
-              disabled={configs.length === 0}
-            >
-              {configs.length === 0 ? (
-                <option value="">-- No configs available --</option>
-              ) : (
-                <>
-                  <option value="">-- Select a config --</option>
-                  {configs.map((config) => (
-                    <option key={config.id} value={config.id}>
-                      {config.name || `Config ${config.id}`}
-                    </option>
-                  ))}
-                </>
-              )}
-            </select>
-          </label>
-        </div>
-
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-          <div style={{ flex: 1 }}>
-            <label>
-              Name:
-              <input
-                type="text"
-                value={draft.name}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                style={{ width: '100%', marginTop: '0.25rem' }}
-              />
-            </label>
-          </div>
-          <div style={{ flex: 1 }}>
-            <label>
-              Description:
-              <input
-                type="text"
-                value={draft.description}
-                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                style={{ width: '100%', marginTop: '0.25rem' }}
-              />
-            </label>
-          </div>
-        </div>
-        <div style={{display: 'flex', justifyContent: 'center', marginBottom: '1rem'}}>
-          <MidiTable 
-            value={draft.settings?.midiDeviceName || ""} 
-            onChange={handleMidiDeviceChange}
-          />
-        </div>
-        <div>
-          <Button onClick={save} disabled={saving} variant="success">
-            {saving ? 'Saving...' : 'Save'}
-          </Button>
-        </div>
-      </div>
-    );
-
-  }
-
-  function MidiTable({ value, onChange }) { 
-    return (
-      <label>
-        Pick Midi Device
-        <select 
-          value={value || ""} 
-          onChange={onChange}
-          style={{ width: '100%', marginTop: '0.25rem' }}
-        >
-          <option value="">-- Select a MIDI device --</option>
-          {WebMidi.inputs.map((device) => (
-            <option key={device.id} value={device.name}>{device.name}</option>
-          ))}
-        </select>
-      </label>
-    )
-  }
+    // Update to new device
+    webmidiIndex.current = deviceIndex;
+    webmidiInput.current = WebMidi.inputs[deviceIndex];
+    webmidiInput.current.channels[1].addListener("noteon", onNote);
+  };
 
 
 
@@ -793,22 +825,30 @@ export default function Recorder({ submit, accompaniment }) {
     tRecorder.current = new toneRecorder();
     getDestination().connect(tRecorder.current);
 
-    sampler.current = new Sampler({
+    const samples = audioFileUrl
+      ? { C5: audioFileUrl }
+      : {
+          C5: "/audio/viola_c5.wav",
+          A4: "/audio/viola_a4.wav",
+          B4: "/audio/viola_b4.wav",
+          D4: "/audio/viola_d4.wav",
+          E4: "/audio/viola_e4.wav",
+          F4: "/audio/viola_f4.wav",
+          G4: "/audio/viola_g4.wav",
+        };
 
-      C5: "/audio/viola_c5.wav",
-      A4: "/audio/viola_a4.wav",
-      B4: "/audio/viola_b4.wav",
-      D4: "/audio/viola_d4.wav",
-      E4: "/audio/viola_e4.wav",
-      F4: "/audio/viola_f4.wav",
-      G4: "/audio/viola_g4.wav",
-    }, {
+    sampler.current = new Sampler(samples, {
       onload: () => {
         setSamplerLoaded(true);
       }
     }).toDestination();
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (sampler.current) {
+        sampler.current.dispose();
+      }
+    };
+  }, [audioFileUrl]);
 
   useEffect(() => {
     let interval = null;
@@ -867,7 +907,7 @@ export default function Recorder({ submit, accompaniment }) {
                         )}
                       {hasPermission && (
                         <>
-                        <InstrumentConfigEditor show={show} onSaved={handleClose}></InstrumentConfigEditor>
+                        <InstrumentConfigEditor show={show} onSaved={handleClose} onAudioFileChange={setAudioFileUrl} onMidiDeviceSelect={handleMidiDeviceSelect}></InstrumentConfigEditor>
                         </>
 
                       )}
