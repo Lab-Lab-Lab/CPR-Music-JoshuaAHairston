@@ -150,89 +150,84 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
       drawLoadingState(ctx, clip, rect, dpr);
       return;
     }
-    
+
     const peaks = peaksCache.get(clip.id);
     if (!peaks || peaks.length === 0) return;
-    
+
     const clipH = rect.h;
     const centerY = rect.y + clipH / 2;
     const amplitude = (clipH - 12 * dpr) / 2; // Leave some padding
-    
-    // Calculate how many peaks to draw per pixel
-    const peaksPerPixel = peaks.length / rect.w;
-    
+
+    // Determine actual audio width — peaks represent the real audio content.
+    // Map 1 peak = 1 pixel at current zoom so waveform never stretches.
+    const audioW = Math.min(rect.w, peaks.length);
+
     ctx.save();
-    
+
     // Set up clipping region to contain waveform within clip bounds
     ctx.beginPath();
     ctx.rect(rect.x, rect.y, rect.w, clipH);
     ctx.clip();
-    
-    // Draw waveform
+
+    // Draw waveform — only for the audio portion
     ctx.strokeStyle = hexToRgba(rect.color, 0.7);
     ctx.fillStyle = hexToRgba(rect.color, 0.3);
     ctx.lineWidth = Math.max(1, dpr);
-    
-    // If we have more peaks than pixels, aggregate them
+
+    const peaksPerPixel = peaks.length / audioW;
+
     if (peaksPerPixel > 1) {
-      for (let x = 0; x < rect.w; x++) {
+      // More peaks than pixels — aggregate
+      for (let x = 0; x < audioW; x++) {
         const peakStart = Math.floor(x * peaksPerPixel);
         const peakEnd = Math.floor((x + 1) * peaksPerPixel);
-        
+
         let min = 1.0;
         let max = -1.0;
-        
-        // Find min/max in this pixel's range
+
         for (let i = peakStart; i < peakEnd && i < peaks.length; i++) {
           if (peaks[i][0] < min) min = peaks[i][0];
           if (peaks[i][1] > max) max = peaks[i][1];
         }
-        
+
         const yMin = centerY - max * amplitude;
         const yMax = centerY - min * amplitude;
-        
-        // Draw vertical line for this pixel
+
         ctx.beginPath();
         ctx.moveTo(rect.x + x, yMin);
         ctx.lineTo(rect.x + x, yMax);
         ctx.stroke();
       }
     } else {
-      // We have fewer peaks than pixels, so interpolate
+      // Fewer peaks than pixels — draw at correct positions without stretching
       ctx.beginPath();
-      
-      // Top line (max values)
+
       for (let i = 0; i < peaks.length; i++) {
-        const x = rect.x + (i / (peaks.length - 1)) * rect.w;
+        const x = rect.x + i; // 1 peak = 1 pixel
         const y = centerY - peaks[i][1] * amplitude;
-        
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       }
-      
-      // Bottom line (min values, reversed)
+
       for (let i = peaks.length - 1; i >= 0; i--) {
-        const x = rect.x + (i / (peaks.length - 1)) * rect.w;
+        const x = rect.x + i;
         const y = centerY - peaks[i][0] * amplitude;
         ctx.lineTo(x, y);
       }
-      
+
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
     }
-    
-    // Draw center line
+
+    // Draw center line across the full clip width
     ctx.strokeStyle = hexToRgba(rect.color, 0.2);
     ctx.lineWidth = dpr;
     ctx.beginPath();
     ctx.moveTo(rect.x, centerY);
     ctx.lineTo(rect.x + rect.w, centerY);
     ctx.stroke();
-    
+
     ctx.restore();
   };
 
@@ -548,7 +543,9 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
       const dxSecRaw = dxCss / dragRef.current.pxPerSecCSS;
       const dxSec = snapEnabled ? quantize(dxSecRaw) : dxSecRaw;
       const { start, duration: dur, offset } = dragRef.current.orig;
-      const srcDur = dragRef.current.sourceDuration; // total audio buffer length
+      // If sourceDuration is known, use it; otherwise use offset+duration as the
+      // buffer bound (the clip can be trimmed inward but never extended outward)
+      const srcDur = dragRef.current.sourceDuration || (offset + dur);
       const op = dragRef.current.op;
       let newStart = start;
       let newDur = dur;
@@ -557,25 +554,20 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
       if (op === 'move') {
         newStart = Math.max(0, start + dxSec);
       } else if (op === 'resizeL') {
-        // Trim from left: advance offset into the buffer, can't go past offset 0
-        newStart = Math.max(0, start + dxSec);
+        // Trim from left: advance in-point into the buffer
+        const rawStart = start + dxSec;
+        // Can't drag left edge past the buffer start (offset would go negative)
+        newStart = Math.max(start - offset, rawStart);
+        // Can't drag left edge past the right edge
+        newStart = Math.min(newStart, start + dur - MIN_DUR);
         const delta = newStart - start;
-        newOffset = Math.max(0, (offset || 0) + delta);
-        newDur = Math.max(MIN_DUR, dur - delta);
-        // Clamp: can't reveal audio before the buffer start
-        if (newOffset < 0) {
-          const correction = -newOffset;
-          newOffset = 0;
-          newStart += correction;
-          newDur -= correction;
-        }
+        newOffset = (offset || 0) + delta;
+        newDur = dur - delta;
       } else if (op === 'resizeR') {
+        // Trim from right: adjust out-point
+        const maxDur = srcDur - (offset || 0);
         newDur = Math.max(MIN_DUR, dur + dxSec);
-        // Clamp: can't extend past the end of the source audio buffer
-        if (srcDur != null) {
-          const maxDur = srcDur - (newOffset || offset || 0);
-          newDur = Math.min(newDur, maxDur);
-        }
+        newDur = Math.min(newDur, maxDur); // can't extend past source audio
       }
 
       draw();
