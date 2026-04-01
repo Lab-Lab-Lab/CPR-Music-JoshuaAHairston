@@ -23,7 +23,7 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
   const canvasRef = useRef(null);
   const dragRef = useRef({ op: null, clipIndex: -1, startX: 0, pxPerSecCSS: 1, orig: null, sourceDuration: null });
   // selectionBoxRef removed - selection box now handled by SelectionOverlay component
-  const [peaksCache, setPeaksCache] = useState(new Map()); // clip.id -> peaks
+  const [bufferCache, setBufferCache] = useState(new Map()); // clip.src -> AudioBuffer
   const clips = Array.isArray(track?.clips) ? track.clips : [];
 
   // In select mode, all tracks are clickable (for cross-track selection)
@@ -34,38 +34,33 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
   const MIN_DUR = 0.02; // 20ms
   const HANDLE_W = 8;   // CSS px
 
-  // Load peaks for all clips
+  // Decode and cache AudioBuffers for all clip source URLs
   useEffect(() => {
-    const loadPeaks = async () => {
-      const newPeaksCache = new Map();
-      
+    let cancelled = false;
+    const loadBuffers = async () => {
+      const needed = new Set();
       for (const clip of clips) {
-        if (!clip.src) continue;
-
-        try {
-          // Calculate pixels-per-second to match timeline
-          const pixelsPerSecond = zoomLevel; // 100 zoom = 100 pixels/second
-          const clipWidthPx = Math.max(1, (clip.duration || 0) * pixelsPerSecond);
-          
-          const peaks = await waveformCache.getPeaksForClip(
-            clip.src,
-            clip.offset || 0,
-            clip.duration || 0,
-            clipWidthPx,
-            zoomLevel
-          );
-          
-          newPeaksCache.set(clip.id, peaks);
-        } catch (err) {
-          console.warn(`Failed to load peaks for clip ${clip.id}:`, err);
+        if (clip.src && !clip.isLoading && !bufferCache.has(clip.src)) {
+          needed.add(clip.src);
         }
       }
-      
-      setPeaksCache(newPeaksCache);
+      if (needed.size === 0) return;
+
+      const newCache = new Map(bufferCache);
+      for (const url of needed) {
+        try {
+          const result = await waveformCache.getPeaksForURL(url, 256);
+          if (!cancelled) newCache.set(url, result.audioBuffer);
+        } catch (err) {
+          console.warn(`Failed to decode audio for waveform: ${url}`, err);
+        }
+      }
+      if (!cancelled) setBufferCache(newCache);
     };
-    
-    loadPeaks();
-  }, [clips, duration, zoomLevel]);
+
+    loadBuffers();
+    return () => { cancelled = true; };
+  }, [clips]);
 
   const resizeToCSS = (canvas) => {
     const dpr = window.devicePixelRatio || 1;
@@ -143,84 +138,87 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
     ctx.restore();
   };
 
-  // Draw waveform for a clip
+  // Draw waveform for a clip — computes per-pixel min/max directly from
+  // the decoded AudioBuffer, following the approach used by Audacity and
+  // wavesurfer.js. The number of drawn columns always equals the clip's
+  // pixel width so the waveform never stretches or drops regions.
   const drawWaveform = (ctx, clip, rect, dpr) => {
-    // If clip is loading, show loading state instead
     if (clip.isLoading) {
       drawLoadingState(ctx, clip, rect, dpr);
       return;
     }
 
-    const peaks = peaksCache.get(clip.id);
-    if (!peaks || peaks.length === 0) return;
+    const audioBuffer = bufferCache.get(clip.src);
+    if (!audioBuffer) return;
+
+    const channelData = audioBuffer.getChannelData(0);
+    const sampleRate = audioBuffer.sampleRate;
+    const totalSamples = channelData.length;
 
     const clipH = rect.h;
     const centerY = rect.y + clipH / 2;
-    const amplitude = (clipH - 12 * dpr) / 2; // Leave some padding
+    const amplitude = (clipH - 12 * dpr) / 2;
 
-    // Determine actual audio width — peaks represent the real audio content.
-    // Map 1 peak = 1 pixel at current zoom so waveform never stretches.
-    const audioW = Math.min(rect.w, peaks.length);
+    // Pixel width of this clip in canvas pixels (already DPR-scaled in rect.w)
+    const pixelW = rect.w;
+    if (pixelW < 1) return;
+
+    // Sample range within the buffer for this clip's visible window
+    const offsetSamples = Math.floor((clip.offset || 0) * sampleRate);
+    const durationSamples = Math.floor((clip.duration || 0) * sampleRate);
+    const endSample = Math.min(offsetSamples + durationSamples, totalSamples);
+
+    // How many samples map to one pixel column (Audacity's samplesPerColumn)
+    const samplesPerPixel = Math.max(1, durationSamples / pixelW);
 
     ctx.save();
-
-    // Set up clipping region to contain waveform within clip bounds
     ctx.beginPath();
     ctx.rect(rect.x, rect.y, rect.w, clipH);
     ctx.clip();
 
-    // Draw waveform — only for the audio portion
     ctx.strokeStyle = hexToRgba(rect.color, 0.7);
-    ctx.fillStyle = hexToRgba(rect.color, 0.3);
     ctx.lineWidth = Math.max(1, dpr);
 
-    const peaksPerPixel = peaks.length / audioW;
+    let prevMin = 0, prevMax = 0;
 
-    if (peaksPerPixel > 1) {
-      // More peaks than pixels — aggregate
-      for (let x = 0; x < audioW; x++) {
-        const peakStart = Math.floor(x * peaksPerPixel);
-        const peakEnd = Math.floor((x + 1) * peaksPerPixel);
+    for (let col = 0; col < pixelW; col++) {
+      // Use Audacity's rounding pattern to avoid cumulative drift
+      const sampleStart = offsetSamples + Math.round(col * samplesPerPixel);
+      const sampleEnd = Math.min(
+        offsetSamples + Math.round((col + 1) * samplesPerPixel),
+        endSample
+      );
 
-        let min = 1.0;
-        let max = -1.0;
+      if (sampleStart >= endSample) break; // past the audio
 
-        for (let i = peakStart; i < peakEnd && i < peaks.length; i++) {
-          if (peaks[i][0] < min) min = peaks[i][0];
-          if (peaks[i][1] > max) max = peaks[i][1];
-        }
+      let min = 1.0;
+      let max = -1.0;
 
-        const yMin = centerY - max * amplitude;
-        const yMax = centerY - min * amplitude;
-
-        ctx.beginPath();
-        ctx.moveTo(rect.x + x, yMin);
-        ctx.lineTo(rect.x + x, yMax);
-        ctx.stroke();
+      for (let s = sampleStart; s < sampleEnd; s++) {
+        const v = channelData[s];
+        if (v < min) min = v;
+        if (v > max) max = v;
       }
-    } else {
-      // Fewer peaks than pixels — draw at correct positions without stretching
+
+      // Fill gaps between adjacent columns (Audacity gap-filling)
+      if (col > 0) {
+        if (prevMin > max) max = prevMin;
+        if (prevMax < min) min = prevMax;
+      }
+
+      prevMin = min;
+      prevMax = max;
+
+      const yMin = centerY - max * amplitude;
+      const yMax = centerY - min * amplitude;
+
       ctx.beginPath();
-
-      for (let i = 0; i < peaks.length; i++) {
-        const x = rect.x + i; // 1 peak = 1 pixel
-        const y = centerY - peaks[i][1] * amplitude;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-
-      for (let i = peaks.length - 1; i >= 0; i--) {
-        const x = rect.x + i;
-        const y = centerY - peaks[i][0] * amplitude;
-        ctx.lineTo(x, y);
-      }
-
-      ctx.closePath();
-      ctx.fill();
+      ctx.moveTo(rect.x + col, yMin);
+      ctx.lineTo(rect.x + col, yMax);
       ctx.stroke();
     }
 
-    // Draw center line across the full clip width
+    // Center line
     ctx.strokeStyle = hexToRgba(rect.color, 0.2);
     ctx.lineWidth = dpr;
     ctx.beginPath();
@@ -641,7 +639,7 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
     };
   }, [clipRects, currentTime, duration, zoomLevel, interactive, selectedClipId, selectedClipIds,
       selectedTrackId, snapEnabled, gridSizeSec, setSelectedTrackId, setSelectedClipId,
-      setSelectedClipIds, setTracks, track?.id, peaksCache, clips, editorTool, logOperation]);
+      setSelectedClipIds, setTracks, track?.id, bufferCache, clips, editorTool, logOperation]);
 
   return (
     <canvas
