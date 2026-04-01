@@ -11,6 +11,24 @@ export default function TakesImportModal({ show, onHide, takes = [] }) {
   const { addTrack, updateTrack } = useMultitrack();
   const [selectedTake, setSelectedTake] = useState(null);
   const [trackName, setTrackName] = useState('');
+  const [resolvedDurations, setResolvedDurations] = useState({});
+
+  // Resolve durations for takes that report 0 when the modal opens
+  useEffect(() => {
+    if (!show || takes.length === 0) return;
+
+    takes.forEach((take) => {
+      if (take.duration > 0 || !take.audioURL || resolvedDurations[take.id] != null) return;
+      const audio = new Audio();
+      audio.preload = 'metadata';
+      audio.onloadedmetadata = () => {
+        if (audio.duration && isFinite(audio.duration)) {
+          setResolvedDurations((prev) => ({ ...prev, [take.id]: audio.duration }));
+        }
+      };
+      audio.src = take.audioURL;
+    });
+  }, [show, takes]);
 
   // Update track name when take is selected
   useEffect(() => {
@@ -109,6 +127,7 @@ export default function TakesImportModal({ show, onHide, takes = [] }) {
           const finalClip = {
             ...placeholderClip,
             duration: result.duration,
+            sourceDuration: result.duration, // total buffer length for trim clamping
             isLoading: false,
             loadingState: 'complete',
             processingMethod: result.method
@@ -141,6 +160,7 @@ export default function TakesImportModal({ show, onHide, takes = [] }) {
           const finalClip = {
             ...placeholderClip,
             duration: duration,
+            sourceDuration: duration, // total buffer length for trim clamping
             isLoading: false,
             loadingState: 'complete',
             processingMethod: 'fallback'
@@ -231,7 +251,7 @@ export default function TakesImportModal({ show, onHide, takes = [] }) {
                     </div>
                     <small className="text-muted">
                       <FaClock className="me-1" />
-                      {formatDuration(take.duration)} •{' '}
+                      {formatDuration(resolvedDurations[take.id] ?? take.duration)} •{' '}
                       {formatDate(take.createdAt)}
                     </small>
                   </div>

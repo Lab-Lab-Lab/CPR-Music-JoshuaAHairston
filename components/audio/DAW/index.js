@@ -37,6 +37,7 @@ export default function DAW({
   showSubmitButton = false,
   silenceWarning = false,
   logOperation = null, // For study protocol tracking
+  sampleTakes = [], // Pre-loaded takes (e.g. bassline) for Import Takes modal
 }) {
   const { audioURL, dawMode, setDawMode, activityLogger } = useAudio();
   const { loadFFmpeg, loaded: ffmpegLoaded } = useFFmpeg();
@@ -125,7 +126,7 @@ export default function DAW({
           </CardHeader>
 
           <CardBody style={{ backgroundColor: '#2d2c29' }}>
-            <MultitrackWithTakes logOperation={logOperation} />
+            <MultitrackWithTakes logOperation={logOperation} sampleTakes={sampleTakes} />
           </CardBody>
 
           {showSubmitButton && (

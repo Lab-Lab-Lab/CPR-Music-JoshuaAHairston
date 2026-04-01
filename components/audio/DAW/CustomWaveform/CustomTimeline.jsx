@@ -76,19 +76,24 @@ export default function CustomTimeline() {
 
       // Apply the spliced audio
       await applyProcessedAudio(splicedBuffer);
-
-      // Log for study protocol (retain/scissor operation)
-      if (logOperation) {
-        logOperation('clip_cut', { start: activeRegion.start, end: activeRegion.end });
-        logOperation('region_retained', { start: activeRegion.start, end: activeRegion.end });
-      }
-
     } catch (error) {
       console.error('Error splicing region:', error);
       alert('Failed to splice region');
-    } finally {
       setIsProcessing(false);
+      return;
     }
+
+    // Log for study protocol — separated so logging failures don't block UI
+    if (logOperation) {
+      try {
+        await logOperation('clip_cut', { start: activeRegion.start, end: activeRegion.end });
+        await logOperation('region_retained', { start: activeRegion.start, end: activeRegion.end });
+      } catch (error) {
+        console.error('⚠️ Failed to log operation (audio edit succeeded):', error);
+      }
+    }
+
+    setIsProcessing(false);
   }, [activeRegion, audioBuffer, applyProcessedAudio, audioContext, isProcessing, logOperation]);
 
   // Handle cut (delete) region - remove the selected region
@@ -101,12 +106,12 @@ export default function CustomTimeline() {
     if (isProcessing) return;
     setIsProcessing(true);
 
-    try {
-      // Check if deletion is at beginning or end (silence trimming)
-      const duration = audioBuffer.duration;
-      const isStartTrim = activeRegion.start < 0.5; // Within 0.5s of start
-      const isEndTrim = activeRegion.end > (duration - 0.5); // Within 0.5s of end
+    // Check if deletion is at beginning or end (silence trimming)
+    const duration = audioBuffer.duration;
+    const isStartTrim = activeRegion.start < 0.5; // Within 0.5s of start
+    const isEndTrim = activeRegion.end > (duration - 0.5); // Within 0.5s of end
 
+    try {
       // Remove the selected region
       const cutBuffer = cutRegionFromBuffer(
         audioBuffer,
@@ -117,31 +122,30 @@ export default function CustomTimeline() {
 
       // Apply the cut audio
       await applyProcessedAudio(cutBuffer);
-
-      // Log for study protocol (delete operation)
-      if (logOperation) {
-        console.log('🎯 Logging clip_delete operation:', { start: activeRegion.start, end: activeRegion.end });
-        logOperation('clip_delete', { start: activeRegion.start, end: activeRegion.end });
-
-        // Also log silence trimming if applicable
-        if (isStartTrim) {
-          console.log('🎯 Logging silence_trimmed_start operation');
-          logOperation('silence_trimmed_start', { region: activeRegion });
-        }
-        if (isEndTrim) {
-          console.log('🎯 Logging silence_trimmed_end operation');
-          logOperation('silence_trimmed_end', { region: activeRegion });
-        }
-      } else {
-        console.warn('⚠️ logOperation is not available for clip_delete');
-      }
-
     } catch (error) {
       console.error('Error cutting region:', error);
       alert('Failed to cut region');
-    } finally {
       setIsProcessing(false);
+      return;
     }
+
+    // Log for study protocol — separated from audio processing so logging
+    // failures don't show "Failed to cut region" or block the UI
+    if (logOperation) {
+      try {
+        await logOperation('clip_delete', { start: activeRegion.start, end: activeRegion.end });
+        if (isStartTrim) {
+          await logOperation('silence_trimmed_start', { region: activeRegion });
+        }
+        if (isEndTrim) {
+          await logOperation('silence_trimmed_end', { region: activeRegion });
+        }
+      } catch (error) {
+        console.error('⚠️ Failed to log operation (audio edit succeeded):', error);
+      }
+    }
+
+    setIsProcessing(false);
   }, [activeRegion, audioBuffer, applyProcessedAudio, audioContext, isProcessing, logOperation]);
 
   return (
@@ -195,15 +199,15 @@ export default function CustomTimeline() {
       <div className="d-flex align-items-center">
         <Button
           className="prog-button pr-2"
-          onClick={() => {
+          onClick={async () => {
             undo();
             // Log for study protocol
             if (logOperation) {
-              logOperation('undo_action', {});
+              await logOperation('undo_action', {});
 
               // Check if we've restored to original state (Activity 2 requirement)
               if (isRestoredToOriginal && isRestoredToOriginal()) {
-                logOperation('audio_restored', {
+                await logOperation('audio_restored', {
                   message: 'Audio restored to original state via undo'
                 });
               }

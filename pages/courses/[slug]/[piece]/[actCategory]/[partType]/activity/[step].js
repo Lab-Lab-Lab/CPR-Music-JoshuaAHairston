@@ -281,35 +281,26 @@ export default function ActivityPage() {
     completedOpsArray: [...completedOps] // Expand the array to see actual values
   });
 
-  // Pre-populate bassline track for Activity 3 using the assignment's sample audio
-  const basslineName = assignment?.part?.piece?.name
-    ? `${assignment.part.piece.name} - Bassline`
-    : 'Bassline';
-  const basslineURL = preferredSample || null;
-  const initialTracks = (stepNumber === 3 && basslineURL) ? [{
-    name: basslineName,
-    type: 'audio',
+  // Build sample takes for Activity 3 — bassline available via "Import Takes" modal
+  const basslineAssignment = loadedActivities
+    ? activities[piece]?.find((a) => a.part_type === 'Bassline')
+    : null;
+  const basslineURL = basslineAssignment?.part?.sample_audio || null;
+  const sampleTakes = (stepNumber === 3 && basslineURL) ? [{
+    id: 'sample-bassline',
+    name: basslineAssignment?.part?.piece?.name
+      ? `${basslineAssignment.part.piece.name} - Bassline`
+      : 'Bassline',
+    partType: 'bassline',
+    takeNumber: 0,
+    duration: 0,
+    createdAt: null,
     audioURL: basslineURL,
-    volume: 1,
-    pan: 0,
-    muted: false,
-    color: '#4a9eff',
-    clips: [{
-      id: `clip-bassline-${Date.now()}`,
-      start: 0,
-      duration: 0, // Will be set when audio loads
-      color: '#4a9eff',
-      src: basslineURL,
-      offset: 0,
-      name: basslineName,
-    }],
+    mimeType: 'audio/mpeg',
+    originalData: null,
   }] : [];
 
-  // Wait for activity progress to load, and for Activity 3 also wait for the
-  // sample audio URL so initialTracks is populated before MultitrackProvider mounts
-  // (useState only reads initialTracks on first mount — late arrivals are ignored)
-  const awaitingSample = stepNumber === 3 && !preferredSample && !!assignment;
-  if (isLoading || awaitingSample) {
+  if (isLoading) {
     return (
       <StudentAssignment assignment={assignment}>
         <div className="text-center py-5">
@@ -324,7 +315,6 @@ export default function ActivityPage() {
   return (
     <StudentAssignment assignment={assignment}>
       <DAWProvider
-        initialTracks={initialTracks}
         persistenceConfig={audioPersistenceConfig}
       >
         {/* Initialize DAW visibility and mode for multitrack activities */}
@@ -392,6 +382,7 @@ export default function ActivityPage() {
               onSubmit={null} // No submission from DAW itself in study mode
               showSubmitButton={false} // Hide DAW's submit button
               logOperation={logOperation} // Pass operation logger to DAW
+              sampleTakes={sampleTakes} // Bassline available via Import Takes modal
             />
           )}
         </ActivityLayout>

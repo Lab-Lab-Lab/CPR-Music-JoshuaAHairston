@@ -2,11 +2,17 @@
 import { getSession } from 'next-auth/react';
 
 // https://allover.twodee.org/remote-state/fetching-memories/
-function assertResponse(response) {
+async function assertResponse(response) {
   if (response.status >= 200 && response.status < 300) {
     return response;
   }
-  throw new Error(`${response.status}: ${response.statusText}`);
+  // Include response body in error for debugging
+  let detail = '';
+  try {
+    const body = await response.clone().text();
+    detail = ` — ${body}`;
+  } catch (_) { /* ignore */ }
+  throw new Error(`${response.status}: ${response.statusText}${detail}`);
 }
 
 async function getDjangoToken() {
@@ -39,7 +45,7 @@ async function makeRequest(
     body: body ? JSON.stringify(body) : null,
   });
 
-  assertResponse(response);
+  await assertResponse(response);
 
   const data = await response.json();
   return data;

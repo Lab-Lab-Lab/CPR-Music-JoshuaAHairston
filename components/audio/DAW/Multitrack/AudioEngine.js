@@ -93,6 +93,10 @@ export function createTransport({ onTick, getProjectDurationSec }) {
     },
     play(fromSec = null) {
       if (fromSec != null) state.startAtSec = Math.max(0, fromSec);
+      // Resume suspended AudioContext (browsers block auto-created contexts)
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
       state.contextStartTime = audioContext.currentTime;
       state.isPlaying = true;
       cancelAnimationFrame(state.rafId);
