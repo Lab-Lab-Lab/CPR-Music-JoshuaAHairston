@@ -448,7 +448,10 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
           dragRef.current.clipIndex = hit.index;
           dragRef.current.startX = e.clientX;
           dragRef.current.orig = { start: c.start || 0, duration: c.duration || 0, offset: c.offset || 0 };
-          dragRef.current.sourceDuration = c.sourceDuration || null;
+          // Resolve sourceDuration: clip field → buffer cache → null
+          dragRef.current.sourceDuration = c.sourceDuration
+            || bufferCache.get(c.src)?.duration
+            || null;
 
           // Stop propagation so SelectionOverlay doesn't interfere
           e.stopPropagation();
@@ -508,7 +511,9 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
         dragRef.current.clipIndex = hit.index;
         dragRef.current.startX = e.clientX;
         dragRef.current.orig = { start: c.start || 0, duration: c.duration || 0, offset: c.offset || 0 };
-        dragRef.current.sourceDuration = c.sourceDuration || null;
+        dragRef.current.sourceDuration = c.sourceDuration
+          || bufferCache.get(c.src)?.duration
+          || null;
       } else {
         dragRef.current.op = null;
         dragRef.current.clipIndex = -1;
@@ -607,9 +612,18 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
       dragRef.current.clipIndex = -1;
       dragRef.current.preview = null;
       if (!p) { draw(); return; }
+      const resolvedSrcDur = dragRef.current.sourceDuration;
       setTracks((prev) => prev.map((t) => {
         if (t.id !== track.id || !Array.isArray(t.clips)) return t;
-        const nextClips = t.clips.map((c, i) => i === idx ? { ...c, start: p.start, duration: p.duration, offset: p.offset } : c);
+        const nextClips = t.clips.map((c, i) => {
+          if (i !== idx) return c;
+          const updated = { ...c, start: p.start, duration: p.duration, offset: p.offset };
+          // Backfill sourceDuration if the clip didn't have it
+          if (!c.sourceDuration && resolvedSrcDur) {
+            updated.sourceDuration = resolvedSrcDur;
+          }
+          return updated;
+        });
         return { ...t, clips: nextClips };
       }));
 
