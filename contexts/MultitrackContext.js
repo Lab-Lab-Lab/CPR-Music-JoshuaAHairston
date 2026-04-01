@@ -175,6 +175,7 @@ export const MultitrackProvider = ({ children, initialTracks = [] }) => {
                 id: `clip-${track.id}`,
                 start: 0,
                 duration: d,
+                sourceDuration: d, // total buffer length for trim clamping
                 color: track.color || '#7bafd4',
                 src: track.audioURL,
                 offset: 0,

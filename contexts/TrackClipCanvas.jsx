@@ -21,7 +21,7 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
   } = useMultitrack();
 
   const canvasRef = useRef(null);
-  const dragRef = useRef({ op: null, clipIndex: -1, startX: 0, pxPerSecCSS: 1, orig: null });
+  const dragRef = useRef({ op: null, clipIndex: -1, startX: 0, pxPerSecCSS: 1, orig: null, sourceDuration: null });
   // selectionBoxRef removed - selection box now handled by SelectionOverlay component
   const [peaksCache, setPeaksCache] = useState(new Map()); // clip.id -> peaks
   const clips = Array.isArray(track?.clips) ? track.clips : [];
@@ -455,6 +455,7 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
           dragRef.current.clipIndex = hit.index;
           dragRef.current.startX = e.clientX;
           dragRef.current.orig = { start: c.start || 0, duration: c.duration || 0, offset: c.offset || 0 };
+          dragRef.current.sourceDuration = c.sourceDuration || null;
 
           // Stop propagation so SelectionOverlay doesn't interfere
           e.stopPropagation();
@@ -514,6 +515,7 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
         dragRef.current.clipIndex = hit.index;
         dragRef.current.startX = e.clientX;
         dragRef.current.orig = { start: c.start || 0, duration: c.duration || 0, offset: c.offset || 0 };
+        dragRef.current.sourceDuration = c.sourceDuration || null;
       } else {
         dragRef.current.op = null;
         dragRef.current.clipIndex = -1;
@@ -546,6 +548,7 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
       const dxSecRaw = dxCss / dragRef.current.pxPerSecCSS;
       const dxSec = snapEnabled ? quantize(dxSecRaw) : dxSecRaw;
       const { start, duration: dur, offset } = dragRef.current.orig;
+      const srcDur = dragRef.current.sourceDuration; // total audio buffer length
       const op = dragRef.current.op;
       let newStart = start;
       let newDur = dur;
@@ -554,12 +557,25 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
       if (op === 'move') {
         newStart = Math.max(0, start + dxSec);
       } else if (op === 'resizeL') {
+        // Trim from left: advance offset into the buffer, can't go past offset 0
         newStart = Math.max(0, start + dxSec);
         const delta = newStart - start;
-        newDur = Math.max(MIN_DUR, dur - delta);
         newOffset = Math.max(0, (offset || 0) + delta);
+        newDur = Math.max(MIN_DUR, dur - delta);
+        // Clamp: can't reveal audio before the buffer start
+        if (newOffset < 0) {
+          const correction = -newOffset;
+          newOffset = 0;
+          newStart += correction;
+          newDur -= correction;
+        }
       } else if (op === 'resizeR') {
         newDur = Math.max(MIN_DUR, dur + dxSec);
+        // Clamp: can't extend past the end of the source audio buffer
+        if (srcDur != null) {
+          const maxDur = srcDur - (newOffset || offset || 0);
+          newDur = Math.min(newDur, maxDur);
+        }
       }
 
       draw();

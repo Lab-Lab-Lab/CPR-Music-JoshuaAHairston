@@ -253,6 +253,7 @@ export default function RecordingTrack({ track, index, zoomLevel = 100 }) {
         id: `clip-${track.id}-${Date.now()}`,
         start: recordingStartPosition, // Use the stored start position
         duration: audioDuration,
+        sourceDuration: audioDuration, // total buffer length for trim clamping
         src: url,
         offset: 0,
         color: track.color || '#ff6b6b',

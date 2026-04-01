@@ -127,6 +127,7 @@ export default function TakesImportModal({ show, onHide, takes = [] }) {
           const finalClip = {
             ...placeholderClip,
             duration: result.duration,
+            sourceDuration: result.duration, // total buffer length for trim clamping
             isLoading: false,
             loadingState: 'complete',
             processingMethod: result.method
@@ -159,6 +160,7 @@ export default function TakesImportModal({ show, onHide, takes = [] }) {
           const finalClip = {
             ...placeholderClip,
             duration: duration,
+            sourceDuration: duration, // total buffer length for trim clamping
             isLoading: false,
             loadingState: 'complete',
             processingMethod: 'fallback'
