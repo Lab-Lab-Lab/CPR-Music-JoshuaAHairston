@@ -429,14 +429,11 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
 
       // Handle select tool
       if (editorTool === 'select') {
-        console.log('🔶 TrackClipCanvas: Select tool click', { trackId: track.id, hitIndex: hit.index, clipCount: clips.length });
         if (hit.index >= 0) {
           // Clicked on a clip - handle selection
           const c = clips[hit.index];
           const isShift = e.shiftKey;
           const isCtrl = e.ctrlKey || e.metaKey;
-
-          console.log('🔶 TrackClipCanvas: Clicked on clip', { clipId: c.id, isShift, isCtrl });
 
           if (isShift || isCtrl) {
             // Add to or toggle from selection
@@ -449,18 +446,21 @@ export default function TrackClipCanvas({ track, zoomLevel = 100, height = 100, 
             // Single select (replace selection)
             setSelectedClipId(c.id);
             setSelectedClipIds([c.id]);
-            // Set track as selected when doing single selection
             setSelectedTrackId(track.id);
           }
+
+          // Initialize drag so the clip can be moved in one click-drag motion
+          const op = hit.edge === 'L' ? 'resizeL' : hit.edge === 'R' ? 'resizeR' : 'move';
+          dragRef.current.op = op;
+          dragRef.current.clipIndex = hit.index;
+          dragRef.current.startX = e.clientX;
+          dragRef.current.orig = { start: c.start || 0, duration: c.duration || 0, offset: c.offset || 0 };
 
           // Stop propagation so SelectionOverlay doesn't interfere
           e.stopPropagation();
           return;
-        } else {
-          console.log('🔶 TrackClipCanvas: Clicked on empty space, letting SelectionOverlay handle it');
         }
-        // Note: Selection box dragging is now handled by SelectionOverlay component
-        // which operates at the container level for cross-track selection
+        // Empty space click — let SelectionOverlay handle it
         return;
       }
 
