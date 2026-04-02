@@ -117,6 +117,28 @@ class AudioProcessor {
         processing.reject(new Error(data.error));
         this.processingQueue.delete(clipId);
         break;
+
+      case 'decode-failed':
+        // Worker fetched audio but couldn't decode (Firefox/Safari lack
+        // OfflineAudioContext in workers). Decode on main thread using
+        // the already-fetched data to avoid a second network request.
+        debugLog('AudioProcessor', `🔄 Main-thread decode for ${clipId} (worker transferred data)`);
+        processing.onProgress?.('decoding', 70);
+        {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          audioCtx.decodeAudioData(data.arrayBuffer)
+            .then(audioBuffer => {
+              const peaks = this.generateSimplePeaks(audioBuffer);
+              processing.resolve({ duration: audioBuffer.duration, peaks, method: 'worker-fetch-main-decode' });
+            })
+            .catch(err => {
+              processing.reject(new Error('Main-thread decode failed: ' + err.message));
+            })
+            .finally(() => {
+              this.processingQueue.delete(clipId);
+            });
+        }
+        break;
     }
   }
 
@@ -451,32 +473,42 @@ class AudioProcessor {
             self.postMessage({ type: 'progress', clipId, stage: 'decoding', progress: 60 });
             console.log('🔧 Worker: Starting audio decode for', clipId);
 
-            // Use OfflineAudioContext in worker
-            const decodeStart = performance.now();
-            const sampleRate = WORKER_CONSTANTS.DEFAULT_SAMPLE_RATE;
-            const offlineCtx = new OfflineAudioContext(2, sampleRate, sampleRate);
-            const audioBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
-            const decodeTime = Math.round(performance.now() - decodeStart);
-            console.log('🔧 Worker: Decode completed in', decodeTime + 'ms for', clipId, '(duration:', audioBuffer.duration.toFixed(2) + 's)');
+            // OfflineAudioContext is not available in Web Workers on Firefox/Safari.
+            // If decode fails, transfer the fetched data back so the main thread
+            // can decode without re-fetching.
+            try {
+              const decodeStart = performance.now();
+              const sampleRate = WORKER_CONSTANTS.DEFAULT_SAMPLE_RATE;
+              const offlineCtx = new OfflineAudioContext(2, sampleRate, sampleRate);
+              const audioBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
+              const decodeTime = Math.round(performance.now() - decodeStart);
+              console.log('🔧 Worker: Decode completed in', decodeTime + 'ms for', clipId, '(duration:', audioBuffer.duration.toFixed(2) + 's)');
 
-            self.postMessage({ type: 'progress', clipId, stage: 'generating-peaks', progress: 85 });
-            console.log('🌊 Worker: Generating peaks for', clipId);
+              self.postMessage({ type: 'progress', clipId, stage: 'generating-peaks', progress: 85 });
+              console.log('🌊 Worker: Generating peaks for', clipId);
 
-            // Generate peaks
-            const peaksStart = performance.now();
-            const peaks = generatePeaks(audioBuffer, WORKER_CONSTANTS.DEFAULT_SAMPLES_PER_PIXEL);
-            const peaksTime = Math.round(performance.now() - peaksStart);
-            console.log('🌊 Worker: Peaks generated in', peaksTime + 'ms for', clipId, '(' + peaks.length + ' samples)');
+              const peaksStart = performance.now();
+              const peaks = generatePeaks(audioBuffer, WORKER_CONSTANTS.DEFAULT_SAMPLES_PER_PIXEL);
+              const peaksTime = Math.round(performance.now() - peaksStart);
+              console.log('🌊 Worker: Peaks generated in', peaksTime + 'ms for', clipId, '(' + peaks.length + ' samples)');
 
-            const totalTime = Math.round(performance.now() - startTime);
-            console.log('✅ Worker: Completed', clipId, 'in', totalTime + 'ms total');
+              const totalTime = Math.round(performance.now() - startTime);
+              console.log('✅ Worker: Completed', clipId, 'in', totalTime + 'ms total');
 
-            self.postMessage({
-              type: 'success',
-              clipId,
-              duration: audioBuffer.duration,
-              peaks
-            });
+              self.postMessage({
+                type: 'success',
+                clipId,
+                duration: audioBuffer.duration,
+                peaks
+              });
+            } catch (decodeError) {
+              console.warn('⚠️ Worker: Decode failed for', clipId, '- transferring data to main thread:', decodeError.message);
+              self.postMessage({
+                type: 'decode-failed',
+                clipId,
+                arrayBuffer: arrayBuffer
+              }, [arrayBuffer]);
+            }
 
           } catch (error) {
             const totalTime = Math.round(performance.now() - startTime);
