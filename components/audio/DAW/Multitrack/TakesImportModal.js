@@ -17,8 +17,32 @@ export default function TakesImportModal({ show, onHide, takes = [] }) {
   useEffect(() => {
     if (!show || takes.length === 0) return;
 
+    const audioElements = [];
+
     takes.forEach((take) => {
       if (take.duration > 0 || !take.audioURL || resolvedDurations[take.id] != null) return;
+
+      // For proxy / HTTP URLs, resolve duration via fetch + AudioContext decode
+      // since <audio> preload='metadata' needs range-request support
+      if (take.audioURL.startsWith('/api/') || take.audioURL.startsWith('http')) {
+        fetch(take.audioURL)
+          .then((r) => {
+            if (!r.ok) throw new Error(`${r.status}`);
+            return r.arrayBuffer();
+          })
+          .then((buf) => new AudioContext().decodeAudioData(buf))
+          .then((decoded) => {
+            if (decoded.duration && isFinite(decoded.duration)) {
+              setResolvedDurations((prev) => ({ ...prev, [take.id]: decoded.duration }));
+            }
+          })
+          .catch((err) =>
+            console.warn(`TakesImportModal: duration resolve failed for ${take.id}:`, err.message),
+          );
+        return;
+      }
+
+      // Blob URLs work fine with the Audio element approach
       const audio = new Audio();
       audio.preload = 'metadata';
       audio.onloadedmetadata = () => {
@@ -26,8 +50,16 @@ export default function TakesImportModal({ show, onHide, takes = [] }) {
           setResolvedDurations((prev) => ({ ...prev, [take.id]: audio.duration }));
         }
       };
+      audio.onerror = () => {
+        console.warn(`TakesImportModal: Audio metadata load failed for ${take.id}`);
+      };
       audio.src = take.audioURL;
+      audioElements.push(audio);
     });
+
+    return () => {
+      audioElements.forEach((a) => { a.src = ''; });
+    };
   }, [show, takes]);
 
   // Update track name when take is selected
@@ -213,16 +245,7 @@ export default function TakesImportModal({ show, onHide, takes = [] }) {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
-  // Mock data for testing if no takes provided
   const displayTakes = takes.length > 0 ? takes : [];
-
-  console.log('🎹 TakesImportModal: Received takes:', takes);
-  console.log('🎹 TakesImportModal: Display takes:', displayTakes);
-
-  // Show helpful message if no takes
-  if (displayTakes.length === 0 && takes.length === 0) {
-    console.log('No takes available in TakesImportModal');
-  }
 
   return (
     <Modal show={show} onHide={onHide} size="lg" className="takes-import-modal">

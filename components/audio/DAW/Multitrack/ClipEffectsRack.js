@@ -356,11 +356,17 @@ export default function ClipEffectsRack({ show, onHide, selectedClipId, logOpera
       clips: selectedTrack.clips.map(c => c.id === selectedClipId ? updatedClip : c)
     });
 
-    // Log for study protocol (Activity 3)
+    // Log for study protocol
     if (logOperation) {
+      // eq_preset_applied unlocks Activity 3 Q5
       logOperation('eq_preset_applied', {
         clipId: selectedClipId,
         presetName: presetName
+      });
+      // Applying a preset is also applying an effect (Activity 4 requirement)
+      logOperation('effect_applied', {
+        clipId: selectedClipId,
+        effectType: 'preset:' + presetName
       });
     }
   }, [selectedClip, selectedClipId, selectedTrack, updateTrack, logOperation]);
