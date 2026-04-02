@@ -109,7 +109,7 @@ export function useActivityProgress({ slug, assignmentId, initialStep = 1, email
       logger.logEvent(operation, data);
 
       // Update local state with server response
-      if (updatedProgress) {
+      if (updatedProgress?.step_completions) {
         setStepCompletions(updatedProgress.step_completions);
         setActivityLogs(updatedProgress.activity_logs || []);
       }
