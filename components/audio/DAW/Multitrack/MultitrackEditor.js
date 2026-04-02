@@ -372,6 +372,9 @@ export default function MultitrackEditor({ availableTakes: propTakes = [], logOp
     }
 
     // Log deletion
+    if (logOperation) {
+      logOperation('clip_delete', { clipCount });
+    }
     try {
       const activityLogger = getDAWActivityLogger();
       if (activityLogger?.isActive) {
@@ -386,7 +389,7 @@ export default function MultitrackEditor({ availableTakes: propTakes = [], logOp
     } catch (error) {
       console.error('📊 Error logging delete operation:', error);
     }
-  }, [selectedTrack, selectedClipId, tracks, updateTrack, setSelectedClipId, setSelectedClipIds]);
+  }, [selectedTrack, selectedClipId, tracks, updateTrack, setSelectedClipId, setSelectedClipIds, logOperation]);
 
   // Handle split at playhead
   const handleSplitAtPlayhead = useCallback(() => {
