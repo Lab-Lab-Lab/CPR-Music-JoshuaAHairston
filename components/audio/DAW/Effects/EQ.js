@@ -739,7 +739,7 @@ export async function processEQRegion(audioBuffer, startSample, endSample, param
  * Professional Parametric EQ with visual frequency response
  * Features: 8-band parametric EQ, spectrum analyzer, linear phase option
  */
-export default function EQ({ width, modalMode = false, onApply }) {
+export default function EQ({ width, modalMode = false, onApply, logOperation = null }) {
   const {
     audioRef,
     addToEditHistory,
@@ -1151,6 +1151,9 @@ export default function EQ({ width, modalMode = false, onApply }) {
                 // Force new array and deep clone to trigger React re-render
                 setEqBands(preset.bands.map(band => ({ ...band })));
                 setEqGain(preset.outputGain);
+                if (logOperation && presetKey !== 'flat') {
+                  logOperation('eq_preset_applied', { presetName: preset.name });
+                }
               }
             }}
             className="bg-secondary text-white border-0"
