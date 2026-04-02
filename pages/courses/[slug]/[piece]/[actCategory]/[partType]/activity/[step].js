@@ -285,11 +285,11 @@ export default function ActivityPage() {
   const basslineAssignment = loadedActivities
     ? activities[piece]?.find((a) => a.part_type === 'Bassline')
     : null;
-  // Convert absolute backend URL to relative /media/... path so it routes through
-  // Next.js rewrite proxy (avoids CORS issues with cross-origin fetch/decodeAudioData)
+  // Proxy S3 URLs through our API route so the browser (and Web Workers) can
+  // fetch same-origin without needing S3 CORS configuration.
   const rawBasslineURL = basslineAssignment?.part?.sample_audio || null;
   const basslineURL = rawBasslineURL
-    ? rawBasslineURL.replace(/^https?:\/\/[^/]+/, '') // strip origin, keep /media/...
+    ? `/api/audio-proxy?url=${encodeURIComponent(rawBasslineURL)}`
     : null;
   const sampleTakes = (stepNumber === 3 && basslineURL) ? [{
     id: 'sample-bassline',
