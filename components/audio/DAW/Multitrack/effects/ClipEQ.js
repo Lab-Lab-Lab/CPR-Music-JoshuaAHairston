@@ -244,7 +244,7 @@ function calculateFrequencyResponse(bands, sampleRate, numPoints = 512) {
 /**
  * Clip EQ Component
  */
-export default function ClipEQ({ parameters, onParametersChange }) {
+export default function ClipEQ({ parameters, onParametersChange, logOperation = null }) {
   const canvasRef = useRef(null);
   const [eqBands, setEqBands] = useState(parameters.bands || EQPresets.flat.bands);
   const [outputGain, setOutputGain] = useState(parameters.outputGain || 0);
@@ -396,6 +396,9 @@ export default function ClipEQ({ parameters, onParametersChange }) {
                 setEqBands(preset.bands.map(band => ({ ...band })));
                 setOutputGain(preset.outputGain);
                 onParametersChange({ bands: preset.bands, outputGain: preset.outputGain });
+                if (logOperation && presetKey !== 'flat') {
+                  logOperation('eq_preset_applied', { presetName: preset.name });
+                }
               }
             }}
             className="bg-secondary text-white border-0"

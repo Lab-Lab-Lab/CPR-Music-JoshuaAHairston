@@ -68,7 +68,8 @@ export default function ClipEffectParametersModal({
   clipId,
   effectId,
   effectType,
-  currentParameters
+  currentParameters,
+  logOperation = null
 }) {
   const { tracks, updateTrack } = useMultitrack();
 
@@ -121,6 +122,7 @@ export default function ClipEffectParametersModal({
         <EffectComponent
           parameters={currentParameters}
           onParametersChange={handleParameterChange}
+          logOperation={logOperation}
         />
       </Modal.Body>
 

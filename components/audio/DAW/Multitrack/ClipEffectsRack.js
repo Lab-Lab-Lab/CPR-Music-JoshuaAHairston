@@ -675,6 +675,7 @@ export default function ClipEffectsRack({ show, onHide, selectedClipId, logOpera
           effectId={selectedEffect.id}
           effectType={selectedEffect.type}
           currentParameters={selectedEffect.parameters}
+          logOperation={logOperation}
         />
       )}
     </Modal>
