@@ -285,8 +285,8 @@ export default function DAW({
       </Card>
 
       {/* Effects Modals */}
-      <EffectsModal />
-      <EffectControlModal />
+      <EffectsModal logOperation={logOperation} />
+      <EffectControlModal logOperation={logOperation} />
 
       {/* Recording Modal for first-time recording */}
       <RecordingModal

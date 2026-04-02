@@ -53,7 +53,10 @@ export default function CustomTimeline() {
     // Set the cutRegion so effects know what region to apply to
     setCutRegion(activeRegion);
     setShowEffectsModal(true);
-  }, [activeRegion, setShowEffectsModal, setCutRegion]);
+    if (logOperation) {
+      logOperation('effects_rack_toggled', {});
+    }
+  }, [activeRegion, setShowEffectsModal, setCutRegion, logOperation]);
 
   // Handle splice (excise) region - keep only the selected region
   const handleSplice = useCallback(async () => {

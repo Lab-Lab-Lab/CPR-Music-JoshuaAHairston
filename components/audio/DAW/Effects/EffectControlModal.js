@@ -33,7 +33,7 @@ const effectComponents = {
   stereowide: lazy(() => import('./StereoWidener'))
 };
 
-export default function EffectControlModal() {
+export default function EffectControlModal({ logOperation = null }) {
   const {
     showEffectControlModal,
     setShowEffectControlModal,
@@ -51,6 +51,13 @@ export default function EffectControlModal() {
   const handleClose = () => {
     setShowEffectControlModal(false);
     setSelectedEffect(null);
+  };
+
+  const handleApply = () => {
+    if (logOperation && selectedEffect) {
+      logOperation('effect_applied', { effectType: selectedEffect.id });
+    }
+    handleClose();
   };
 
 
@@ -115,7 +122,7 @@ export default function EffectControlModal() {
             >
               {EffectComponent ? (
                 <div className="effect-controls-container">
-                  <EffectComponent width={100} modalMode={true} onApply={handleClose} />
+                  <EffectComponent width={100} modalMode={true} onApply={handleApply} logOperation={logOperation} />
                 </div>
               ) : (
                 <Alert variant="warning">
