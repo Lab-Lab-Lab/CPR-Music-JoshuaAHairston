@@ -49,6 +49,13 @@ export default function TakesImportModal({ show, onHide, takes = [] }) {
     try {
       let finalURL = selectedTake.audioURL;
 
+      // Web Workers can't resolve relative URLs (no page base URL context).
+      // Convert to absolute so both the AudioProcessor worker and main-thread
+      // fallback can fetch the resource.
+      if (finalURL.startsWith('/')) {
+        finalURL = `${window.location.origin}${finalURL}`;
+      }
+
       // For blob URLs, we might need to ensure they're still valid
       if (selectedTake.audioURL.startsWith('blob:')) {
         console.log('🔄 TakesImportModal: Refreshing blob URL for take');
