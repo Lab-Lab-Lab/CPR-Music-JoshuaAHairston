@@ -7,7 +7,7 @@ import { FaFileAudio, FaClock, FaMusic } from 'react-icons/fa';
 import { useMultitrack } from '../../../../contexts/MultitrackContext';
 import { getAudioProcessor } from './AudioProcessor';
 
-export default function TakesImportModal({ show, onHide, takes = [] }) {
+export default function TakesImportModal({ show, onHide, takes = [], logOperation = null }) {
   const { addTrack, updateTrack } = useMultitrack();
   const [selectedTake, setSelectedTake] = useState(null);
   const [trackName, setTrackName] = useState('');
@@ -126,6 +126,10 @@ export default function TakesImportModal({ show, onHide, takes = [] }) {
       });
 
       console.log('🎵 TakesImportModal: Track created immediately with ID:', newTrack.id);
+
+      if (logOperation) {
+        logOperation('takes_imported', { takeName: selectedTake.name || trackName });
+      }
 
       // Close modal immediately - track is already visible
       setSelectedTake(null);
