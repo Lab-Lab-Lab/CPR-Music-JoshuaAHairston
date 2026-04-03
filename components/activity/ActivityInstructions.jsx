@@ -58,11 +58,16 @@ export default function ActivityInstructions({
 
             if (instruction.type === 'list') {
               return (
-                <ul key={idx} className="mb-3">
-                  {instruction.items.map((item, itemIdx) => (
-                    <li key={itemIdx}>{item}</li>
-                  ))}
-                </ul>
+                <div key={idx} className="mb-3">
+                  {instruction.title && (
+                    <h6 className="fw-bold">{instruction.title}</h6>
+                  )}
+                  <ul className="mb-0">
+                    {instruction.items.map((item, itemIdx) => (
+                      <li key={itemIdx}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
               );
             }
 
