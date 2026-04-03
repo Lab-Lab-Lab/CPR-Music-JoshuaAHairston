@@ -1212,7 +1212,7 @@ export default function MultitrackEditor({ availableTakes: propTakes = [], logOp
         show={showTakesModal}
         onHide={() => setShowTakesModal(false)}
         takes={availableTakes}
-        onImport={handleImportTake}
+        logOperation={logOperation}
       />
 
       {/* Clip Effects Modal */}
