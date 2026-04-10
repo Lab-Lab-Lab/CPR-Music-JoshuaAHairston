@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FaEdit, FaStop, FaMicrophone, FaRegTrashAlt } from 'react-icons/fa';
 import { BiRename } from 'react-icons/bi';
 import {
   Card,
@@ -28,6 +27,28 @@ import { catchSilence, setupAudioContext } from '../lib/dawUtils';
 import StatusIndicator from './statusIndicator';
 import styles from '../styles/recorder.module.css';
 import { getInstrumentConfigurations, mutateInstrumentConfiguration, createInstrumentConfiguration } from "../api";
+import MicRecorder from 'mic-recorder-to-mp3';
+import { IoSettingsSharp } from "react-icons/io5";
+import Modal from 'react-bootstrap/Modal'
+import { Sampler, Recorder as toneRecorder, getDestination, loaded, start, Midi } from "tone";
+import { WebMidi } from "webmidi";
+import {
+  FaEdit,
+  FaMicrophone,
+  FaStop,
+  FaCloudUploadAlt,
+  FaSpinner,
+  FaTimesCircle,
+  FaCheck,
+  FaPlay,
+  FaPause,
+  FaVolumeOff,
+  FaVolumeMute,
+  FaVolumeDown,
+  FaVolumeUp,
+  FaRegTrashAlt,
+} from 'react-icons/fa';
+import WaveSurfer from 'wavesurfer.js';
 
 // Create a silent audio buffer as scratch audio to initialize wavesurfer
 const createSilentAudio = () => {
@@ -1595,7 +1616,7 @@ export function Recorder({ submit, accompaniment }) {
             </Button>
           ) : (
             <>
-              <Button onClick={startRecording} disabled={!hasPermission}> {/*idk about the disabled here */}
+              <Button onClick={startRecording}> {/*idk about the disabled here */}
                 <FaMicrophone />
               </Button>
               {/*<Config RecordingTypeChanged={handleRecordingTypeChange} value={recordingType}></Config>*/}
