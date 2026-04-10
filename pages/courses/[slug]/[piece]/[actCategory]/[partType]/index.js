@@ -20,7 +20,7 @@ const FlatEditor = dynamic(
 
 // Import the recorder
 const Recorder = dynamic(
-  () => import('../../../../../../components/recorder'),
+  () => import('../../../../../../components/recorder').then(mod => mod.Recorder),
   {
     ssr: false,
   },

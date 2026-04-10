@@ -7,7 +7,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import { getStudentAssignments, mutateCreateSubmission } from '../../../api';
-import Recorder from '../../recorder';
+import { Recorder } from '../../recorder';
 import { postRecording } from '../../../actions';
 
 const FlatEditor = dynamic(() => import('../../flatEditor'), {

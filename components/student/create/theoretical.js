@@ -8,7 +8,7 @@ import Button from 'react-bootstrap/Button';
 import Spinner from 'react-bootstrap/Spinner';
 import { Col, Row } from 'react-bootstrap';
 import { getStudentAssignments, mutateCreateSubmission } from '../../../api';
-import Recorder from '../../recorder';
+import { Recorder } from '../../recorder';
 import { postRecording } from '../../../actions';
 
 const ExploratoryCompose = dynamic(() => import('../../exploratoryCompose'), {
@@ -108,7 +108,7 @@ export default function CreativityActivity() {
           'staff-details'
         ] =
           referenceScoreObj['score-partwise'].part[0].measure[0].attributes[0][
-            'staff-details'
+          'staff-details'
           ];
 
         partialScores.push(JSON.stringify(slice));
