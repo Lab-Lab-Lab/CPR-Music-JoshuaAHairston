@@ -103,7 +103,12 @@ const createSilentAudio = () => {
 
 const scratchURL = createSilentAudio();
 
-export default function RecorderRefactored({ submit, accompaniment, logOperation = null }) {
+export default function RecorderRefactored({
+  submit,
+  accompaniment,
+  logOperation = null,
+  enableDroppedAudioDetection = false,
+}) {
   const dispatch = useDispatch();
   const router = useRouter();
   const { slug, piece, actCategory, partType } = router.query;
@@ -558,7 +563,9 @@ export default function RecorderRefactored({ submit, accompaniment, logOperation
       }
 
       try {
-        if (!ignoreSilence && ffmpegLoaded) {
+        // Keep dropped-audio detection available as an opt-in tool without
+        // blocking the default student submit flow.
+        if (enableDroppedAudioDetection && !ignoreSilence && ffmpegLoaded) {
           const silenceResult = await catchSilence(
             ffmpegRef,
             url,
@@ -616,6 +623,7 @@ export default function RecorderRefactored({ submit, accompaniment, logOperation
       }
     },
     [
+      enableDroppedAudioDetection,
       ignoreSilence,
       ffmpegLoaded,
       ffmpegRef,
@@ -749,7 +757,7 @@ export default function RecorderRefactored({ submit, accompaniment, logOperation
         </Col>
       </Row>
       <AudioDropModal
-        show={showAudioDrop}
+        show={enableDroppedAudioDetection && showAudioDrop}
         silenceData={silenceData}
         onIgnore={() => {
           setIgnoreSilence(true);
