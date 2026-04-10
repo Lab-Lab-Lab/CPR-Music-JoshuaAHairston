@@ -8,11 +8,19 @@ import {
   fetchSingleStudentAssignment,
   postRecording,
 } from '../../../../../../actions';
-import Recorder from '../../../../../../components/recorder';
 import StudentAssignment from '../../../../../../components/student/assignment';
+import { DAWProvider } from '../../../../../../contexts/DAWProvider';
 
 const FlatEditor = dynamic(
   () => import('../../../../../../components/flatEditor'),
+  {
+    ssr: false,
+  },
+);
+
+// Import the recorder
+const Recorder = dynamic(
+  () => import('../../../../../../components/recorder').then(mod => mod.Recorder),
   {
     ssr: false,
   },
@@ -23,6 +31,7 @@ export default function PerformMelody() {
   const { slug, piece, actCategory, partType } = router.query;
   const dispatch = useDispatch();
   const [parsedScore, setParsedScore] = useState();
+  const [preferredSample, setPreferredSample] = useState();
 
   const userInfo = useSelector((state) => state.currentUser);
   useEffect(() => {
@@ -67,10 +76,21 @@ export default function PerformMelody() {
     if (score) {
       setParsedScore(JSON.parse(score));
     }
+
+    // if there's an instrument_sample for the student's instrument, use that,
+    // otherwise use the sample from the part
+    const myInstrumentId = assignment?.instrument?.id ?? userInfo.instrument;
+    const instrumentSample = assignment?.part?.instrument_samples?.find(
+      (instrument) => instrument.instrument === myInstrumentId,
+    );
+    if (instrumentSample) {
+      setPreferredSample(instrumentSample.sample_audio);
+    } else {
+      setPreferredSample(assignment?.part?.sample_audio);
+    }
+    console.log('preferredSample', preferredSample);
   }, [assignment]);
 
-  // TODO: maybe I should let studentAssignment render anyway but then handle missing things at a lower level
-  // return assignment && assignment?.id && assignment?.part ? (
   return (
     <StudentAssignment assignment={assignment}>
       {parsedScore === undefined ? (
@@ -90,12 +110,12 @@ export default function PerformMelody() {
         <>
           <FlatEditor score={parsedScore} />
           {assignment?.part?.sample_audio && (
-            <dl>
+            <dl className='mb-0'>
               <dt>Sample Recording</dt>
-              <dd>
+              <dd className='mb-0'>
                 {
                   // eslint-disable-next-line jsx-a11y/media-has-caption
-                  <audio controls src={assignment.part.sample_audio} />
+                  <audio controls src={preferredSample} />
                 }
               </dd>
             </dl>
@@ -103,20 +123,21 @@ export default function PerformMelody() {
         </>
       )}
       {partType && (
-        <Recorder
-          accompaniment={assignment?.part?.piece?.accompaniment}
-          submit={({ audio, submissionId }) =>
-            dispatch(
-              postRecording({
-                token: userInfo.token,
-                slug,
-                assignmentId: assignment.id,
-                audio,
-                submissionId,
-              }),
-            )
-          }
-        />
+        <DAWProvider>
+          <Recorder
+            accompaniment={assignment?.part?.piece?.accompaniment}
+            submit={(audio) =>
+              dispatch(
+                postRecording({
+                  token: userInfo.token,
+                  slug,
+                  assignmentId: assignment.id,
+                  audio,
+                }),
+              )
+            }
+          />
+        </DAWProvider>
       )}
     </StudentAssignment>
   );

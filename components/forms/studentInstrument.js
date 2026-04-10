@@ -16,7 +16,7 @@ function StudentInstrument({ enrollment, token, options: instruments }) {
 
   const updateInstrument = (ev) => {
     const instrumentObj = instruments.find(
-      (instr) => instr.id === ev.target.value,
+      (instr) => instr.id === parseInt(ev.target.value, 10),
     );
 
     if (instrumentObj) {

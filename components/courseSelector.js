@@ -63,7 +63,11 @@ function CourseSelector() {
   ) {
     return (
       <Nav.Item>
-        <Link href={`/courses/${enrollments[0].course.slug}`} passHref>
+        <Link
+          href={`/courses/${enrollments[0].course.slug}`}
+          passHref
+          legacyBehavior
+        >
           <Nav.Link>{enrollments[0].course.name}</Nav.Link>
         </Link>
       </Nav.Item>

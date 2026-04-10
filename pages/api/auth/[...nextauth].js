@@ -128,6 +128,9 @@ export default NextAuth({
         returnVal = absUrl;
       }
       // maybe this was blocking me from reaching auth??
+      if (returnVal.includes('/auth/signout')) {
+        returnVal = '/';
+      }
       return returnVal;
     },
     async session({ session, token, user }) {

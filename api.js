@@ -2,11 +2,17 @@
 import { getSession } from 'next-auth/react';
 
 // https://allover.twodee.org/remote-state/fetching-memories/
-function assertResponse(response) {
+async function assertResponse(response) {
   if (response.status >= 200 && response.status < 300) {
     return response;
   }
-  throw new Error(`${response.status}: ${response.statusText}`);
+  // Include response body in error for debugging
+  let detail = '';
+  try {
+    const body = await response.clone().text();
+    detail = ` — ${body}`;
+  } catch (_) { /* ignore */ }
+  throw new Error(`${response.status}: ${response.statusText}${detail}`);
 }
 
 async function getDjangoToken() {
@@ -39,7 +45,7 @@ async function makeRequest(
     body: body ? JSON.stringify(body) : null,
   });
 
-  assertResponse(response);
+  await assertResponse(response);
 
   const data = await response.json();
   return data;
@@ -70,7 +76,9 @@ export function getAllPieces(slug) {
 export function mutateAssignPiece(slug) {
   return async (piecePlanId) => {
     const endpoint = `courses/${slug}/assign_piece_plan/`;
-    const json = await makeRequest(endpoint, 'POST', { piece_id: piecePlanId });
+    const json = await makeRequest(endpoint, 'POST', {
+      piece_plan_id: piecePlanId,
+    });
     return json;
   };
 }
@@ -170,6 +178,65 @@ export function getAssignedPieces(assignments) {
       }
     }
     return pieces;
+  };
+}
+
+// ========== Activity Progress API ==========
+
+export async function getActivityProgress({ slug, assignmentId }) {
+  const endpoint = `courses/${slug}/assignments/${assignmentId}/activity-progress/`;
+  try {
+    const json = await makeRequest(endpoint);
+    return json;
+  } catch (error) {
+    // Return null if not found (first time accessing)
+    if (error.message.includes('404')) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export function mutateLogActivityEvent({ slug, assignmentId }) {
+  return async ({ operation, step, data = {} }) => {
+    const endpoint = `courses/${slug}/assignments/${assignmentId}/activity-progress/log_event/`;
+    const body = { operation, step, data };
+    const json = await makeRequest(endpoint, 'POST', body);
+    return json;
+  };
+}
+
+export function mutateSubmitActivityStep({ slug, assignmentId }) {
+  return async ({ questionResponses = {}, step = null }) => {
+    const endpoint = `courses/${slug}/assignments/${assignmentId}/activity-progress/submit_step/`;
+    const body = { question_responses: questionResponses };
+    if (step !== null) {
+      body.step = step;
+    }
+    const json = await makeRequest(endpoint, 'POST', body);
+    return json;
+  };
+}
+
+export function mutateSaveQuestionResponse({ slug, assignmentId }) {
+  return async ({ questionId, response }) => {
+    const endpoint = `courses/${slug}/assignments/${assignmentId}/activity-progress/save_response/`;
+    const body = { question_id: questionId, response };
+    const json = await makeRequest(endpoint, 'POST', body);
+    return json;
+  };
+}
+
+export function mutateSaveAudioState({ slug, assignmentId }) {
+  return async ({ audioUrl, editHistory, metadata }) => {
+    const endpoint = `courses/${slug}/assignments/${assignmentId}/activity-progress/save_audio_state/`;
+    const body = {
+      audio_url: audioUrl,
+      edit_history: editHistory,
+      metadata,
+    };
+    const json = await makeRequest(endpoint, 'POST', body);
+    return json;
   };
 }
 

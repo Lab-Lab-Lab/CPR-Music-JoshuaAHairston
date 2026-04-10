@@ -185,13 +185,7 @@ function About() {
       </ul>
       <h2>Collaborators</h2>
       <ul>
-        <li>
-          Abdullah Mohammed Ali (Undergraduate Student, James Madison
-          University)
-        </li>
-        <li>
-          Jerome Donfack (Undergraduate Student, James Madison University)
-        </li>
+        <li>Jerome Donfack (Undergraduate Student, James Madison University)</li>
         <li>
           <a
             target="_blank"
@@ -215,22 +209,22 @@ function About() {
           (Preparing Future Faculty Fellow, James Madison University; Ph.D.
           Candidate, University of Rochester)
         </li>
-        <li>Luke Hennessy (Undergraduate, James Madison University)</li>
         <li>
           <a
             target="_blank"
             rel="noopener noreferrer"
-            href="https://mfwolffe.github.io/"
+            href="https://github.com/JoshuaAHairston"
           >
-            Matt Wolffe
-          </a>
-          (Undergraduate, James Madison University)
+            Joshua Hairston
+          </a>{' '}
+          (Undergraduate Student, James Madison University)
         </li>
         <li>
           Thomas Hassett (Undergraduate Student Alumnus, School of Music;
           Innovation Leader, Center for Inclusive Music Engagement; James
           Madison University)
         </li>
+        <li>Luke Hennessy (Undergraduate Student, James Madison University)</li>
         <li>
           <a
             target="_blank"
@@ -241,9 +235,7 @@ function About() {
           </a>{' '}
           (Undergraduate Student, James Madison University)
         </li>
-        <li>
-          William Jedrzejczak (Undergraduate Student, James Madison University)
-        </li>
+        <li>William Jedrzejczak (Undergraduate Student, James Madison University)</li>
         <li>
           Heidi Lucas, DMA (Visiting Assistant Professor of Brass and Music
           Education, University of Delaware)
@@ -252,6 +244,7 @@ function About() {
           Brandon McKean (Systems Administrator, Department of Computer Science,
           James Madison University)
         </li>
+        <li>Abdullah Mohammed Ali (Undergraduate Student, James Madison University)</li>
         <li>
           Pete Morris (Systems Administrator, Department of Computer Science,
           James Madison University)
@@ -266,9 +259,10 @@ function About() {
             Liem Nguyen (Undergraduate Student, James Madison University)
           </a>
         </li>
-        <li>
-          Meara Patterson (Undergraduate Student, James Madison University)
-        </li>
+        <li>Khadijat Oluwasanmi (Undergraduate Student, James Madison University)</li>
+        <li>Isaiah Ortiz (Undergraduate Student, James Madison University)</li>
+        <li>Meara Patterson (Undergraduate Student, James Madison University)</li>
+        <li>Danny Ramos (Undergraduate Student, James Madison University)</li>
         <li>
           <a
             target="_blank"
@@ -279,12 +273,18 @@ function About() {
           </a>{' '}
           (Lecturer in Computer Science, James Madison University)
         </li>
-        <li>
-          Khadijat Oluwasanmi (Undergraduate Student, James Madison University)
-        </li>
-        <li>Isaiah Ortiz (Undergraduate Student, James Madison University)</li>
         <li>Eliza Samuels (Undergraduate Student, James Madison University)</li>
         <li>Nathan Self (Consulting Musician and Web Developer)</li>
+        <li>
+          <a
+            target="_blank"
+            rel="noopener noreferrer"
+            href="https://musicsian.com/"
+          >
+            Matt Wolffe 
+          </a>{' '}
+          (Undergraduate Student, James Madison University)
+        </li>
         <li>
           <a
             target="_blank"
@@ -306,17 +306,6 @@ function About() {
             Lauren Yu
           </a>{' '}
           (Web Developer)
-        </li>
-
-        <li>
-          <a
-            target="_blank"
-            rel="noopener noreferrer"
-            href="https://github.com/JoshuaAHairston"
-          >
-            Joshua Hairston
-          </a>{' '}
-          (Undergraduate Student, James Madison University)
         </li>
       </ul>
     </Layout>

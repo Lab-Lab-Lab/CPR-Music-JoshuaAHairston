@@ -8,7 +8,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import { getStudentAssignments, mutateCreateSubmission } from '../../../api';
-import Recorder from '../../recorder';
+import { Recorder } from '../../recorder';
 import { postRecording } from '../../../actions';
 
 const FlatEditor = dynamic(() => import('../../flatEditor'), {
