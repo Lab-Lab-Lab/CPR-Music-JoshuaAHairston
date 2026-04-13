@@ -1255,7 +1255,7 @@ export function Recorder({ submit, accompaniment }) {
   const dispatch = useDispatch();
   const [min, setMinute] = useState(0);
   const [sec, setSecond] = useState(0);
-  const [isSamplerLoaded, setSamplerLoaded] = useState(false);
+  const isSamplerLoadedRef = useRef(false);
   const [hasPermission, setHasPermission] = useState(false);
   const tRecorder = useRef(null);
   const sampler = useRef(null);
@@ -1303,7 +1303,7 @@ export function Recorder({ submit, accompaniment }) {
     await start();
     onEnabled();
   }
-
+  // TODO: Make two different onNotes so that they can't both run at the same time
   function onNote(e) {
     const accidental = e.note.accidental
     let note = e.note.name;
@@ -1314,11 +1314,13 @@ export function Recorder({ submit, accompaniment }) {
     // sampler.current.triggerAttackRelease(note, 4);
     // if(hasPermission === true) {
     console.log("note on: ", note);
-    loaded().then(() => {
+    if (sampler.current && isSamplerLoadedRef.current) {
       // would be nice for the user to have notes not play for the full duration
       // once they stop holding the key
       sampler.current.triggerAttackRelease(note, 4);
-    });
+    } else {
+      console.warn("Sampler not ready yet, skipping note:", note);
+    }
 
   }
   // InstrumentConfigEditor and MidiTable are defined outside of Recorder
@@ -1576,15 +1578,21 @@ export function Recorder({ submit, accompaniment }) {
         G4: "/audio/viola_g4.wav",
       };
 
-    sampler.current = new Sampler(samples, {
-      onload: () => {
-        setSamplerLoaded(true);
+    const newSampler = new Sampler(samples).toDestination();
+    sampler.current = newSampler;
+    loaded().then(() => {
+      if (sampler.current === newSampler) {
+        isSamplerLoadedRef.current = true;
       }
-    }).toDestination();
+    }).catch((err) => {
+      console.error("Sampler failed to load audio:", err, "samples:", samples);
+    });
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
+      isSamplerLoadedRef.current = false;
       if (sampler.current) {
         sampler.current.dispose();
+        sampler.current = null;
       }
     };
   }, [audioFileUrl]);
