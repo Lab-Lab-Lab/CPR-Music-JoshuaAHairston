@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BiRename } from 'react-icons/bi';
 import {
   Card,
@@ -785,10 +785,26 @@ function Config({ RecordingTypeChanged, value }) {
   );
 }
 //TODO: maybe I should put this somewhere else?
+const DEFAULT_KEY_MAP = "awsedftgyhuj";
+const KEY_MAP_NOTES = [
+  { name: 'C', octave: 4, accidental: undefined },
+  { name: 'C', octave: 4, accidental: '#' },
+  { name: 'D', octave: 4, accidental: undefined },
+  { name: 'D', octave: 4, accidental: '#' },
+  { name: 'E', octave: 4, accidental: undefined },
+  { name: 'F', octave: 4, accidental: undefined },
+  { name: 'F', octave: 4, accidental: '#' },
+  { name: 'G', octave: 4, accidental: undefined },
+  { name: 'G', octave: 4, accidental: '#' },
+  { name: 'A', octave: 4, accidental: undefined },
+  { name: 'A', octave: 4, accidental: '#' },
+  { name: 'B', octave: 4, accidental: undefined },
+];
+
 const emptyDraft = () => ({
   name: "",
   description: "",
-  settings: {},
+  settings: { keyMap: DEFAULT_KEY_MAP },
   file: null,
 });
 
@@ -991,7 +1007,7 @@ function MidiTable({ value, onChange }) {
   )
 }
 
-function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null, onMidiDeviceSelect = null }) {
+function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null, onMidiDeviceSelect = null, onKeyMapChange = null }) {
   const [configs, setConfigs] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [draft, setDraft] = useState(emptyDraft());
@@ -1021,12 +1037,18 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
           if (onAudioFileChange) {
             onAudioFileChange(res[0].file || null);
           }
+          if (onKeyMapChange) {
+            onKeyMapChange(res[0].settings?.keyMap || DEFAULT_KEY_MAP);
+          }
         }
         else {
           setSelectedId(null);
           setDraft(emptyDraft());
           if (onAudioFileChange) {
             onAudioFileChange(null);
+          }
+          if (onKeyMapChange) {
+            onKeyMapChange(DEFAULT_KEY_MAP);
           }
         }
       } catch (error) {
@@ -1057,6 +1079,9 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
     if (config.settings?.midiDeviceName && onMidiDeviceSelect) {
       onMidiDeviceSelect(config.settings.midiDeviceName);
     }
+    if (onKeyMapChange) {
+      onKeyMapChange(config.settings?.keyMap || DEFAULT_KEY_MAP);
+    }
   };
   //TODO: Maybe put this in the useeffect? (like use it there as there's repeated code)
   const onNew = () => {
@@ -1065,6 +1090,20 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
     if (onAudioFileChange) {
       onAudioFileChange(null);
     }
+    if (onKeyMapChange) {
+      onKeyMapChange(DEFAULT_KEY_MAP);
+    }
+  }
+
+  const handleKeyMapChange = (e) => {
+    const keyMap = e.target.value;
+    setDraft({
+      ...draft,
+      settings: {
+        ...draft.settings,
+        keyMap,
+      },
+    });
   }
 
   const handleMidiDeviceChange = (e) => {
@@ -1134,6 +1173,9 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
 
       if (onAudioFileChange) {
         onAudioFileChange(res.file || null);
+      }
+      if (onKeyMapChange) {
+        onKeyMapChange(res.settings?.keyMap || DEFAULT_KEY_MAP);
       }
 
       // this is a function refference passed from the parent to let it know we saved successfully
@@ -1220,6 +1262,18 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
         />
       </div>
       <div style={{ marginBottom: '1rem' }}>
+        <label style={{ width: '100%' }}>
+          Keyboard Mapping (12 keys, C C# D D# E F F# G G# A A# B):
+          <input
+            type="text"
+            value={draft.settings?.keyMap || ""}
+            onChange={handleKeyMapChange}
+            maxLength={12}
+            style={{ width: '100%', marginTop: '0.25rem', fontFamily: 'monospace', letterSpacing: '0.5rem' }}
+          />
+        </label>
+      </div>
+      <div style={{ marginBottom: '1rem' }}>
         <label>
           Audio Sample (C5, mp3 or wav):
           <input
@@ -1271,6 +1325,7 @@ export function Recorder({ submit, accompaniment }) {
   });
   const [show, setShow] = useState(false);
   const [audioFileUrl, setAudioFileUrl] = useState(null);
+  const [keyMappings, setKeyMappings] = useState(DEFAULT_KEY_MAP);
   const handleClose = () => setShow(false);
   const handleShow = () => setShow(true);
 
@@ -1429,114 +1484,15 @@ export function Recorder({ submit, accompaniment }) {
     setBlobInfo(newInfo);
   }
   // Start of integration
-  const keyboardMap = {
-    'a': {
-      qwerty: 'a',
-      note: {
-        name: 'C',
-        octave: 4,
-        accidental: undefined,
-      }
-    },
-    'w': {
-      qwerty: 'w',
-      note: {
-        name: 'C',
-        octave: 4,
-        accidental: '#',
-      }
-    },
-    's': {
-      qwerty: 's',
-      note: {
-        name: 'D',
-        octave: 4,
-        accidental: undefined,
-      }
-    },
-    'e': {
-      qwerty: 'e',
-      note: {
-        name: 'D',
-        octave: 4,
-        accidental: '#',
-      }
-    },
-    'd': {
-      qwerty: 'd',
-      note: {
-        name: 'E',
-        octave: 4,
-        accidental: undefined,
-      }
-    },
-    'f': {
-      qwerty: 'f',
-      note: {
-        name: 'F',
-        octave: 4,
-        accidental: undefined,
-      }
-    },
-    't': {
-      qwerty: 't',
-      note: {
-        name: 'F',
-        octave: 4,
-        accidental: '#',
-      }
-    },
-    'g': {
-      qwerty: 'g',
-      note: {
-        name: 'G',
-        octave: 4,
-        accidental: undefined,
-      }
-    },
-
-    'y': {
-      qwerty: 'y',
-      note: {
-        name: 'G',
-        octave: 4,
-        accidental: '#',
-      }
-    },
-    'h': {
-      qwerty: 'h',
-      note: {
-        name: 'A',
-        octave: 4,
-        accidental: undefined,
-      }
-    },
-    'u': {
-      qwerty: 'u',
-      note: {
-        name: 'A',
-        octave: 4,
-        accidental: '#',
-      }
-    },
-    'j': {
-      qwerty: 'j',
-      note: {
-        name: 'B',
-        octave: 4,
-        accidental: undefined,
-      }
-    },
-    'k': {
-      qwerty: 'k',
-      note: {
-        name: 'C',
-        octave: 5,
-        accidental: undefined,
-      }
-    },
-
-  }
+  const keyboardMap = useMemo(() => {
+    const map = {};
+    for (let i = 0; i < KEY_MAP_NOTES.length; i++) {
+      const key = keyMappings[i];
+      if (!key) continue;
+      map[key] = { qwerty: key, note: KEY_MAP_NOTES[i] };
+    }
+    return map;
+  }, [keyMappings]);
   // check for recording permissions
   useEffect(() => {
     if (
@@ -1556,13 +1512,6 @@ export function Recorder({ submit, accompaniment }) {
           setIsBlocked(true);
         });
     }
-    const handleKeyDown = (event) => {
-      console.log("Key pressed:", event.key);
-      if (event.key in keyboardMap) {
-        onNote(keyboardMap[event.key]);
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
     tRecorder.current = new toneRecorder();
     getDestination().connect(tRecorder.current);
 
@@ -1588,7 +1537,6 @@ export function Recorder({ submit, accompaniment }) {
       console.error("Sampler failed to load audio:", err, "samples:", samples);
     });
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
       isSamplerLoadedRef.current = false;
       if (sampler.current) {
         sampler.current.dispose();
@@ -1596,6 +1544,19 @@ export function Recorder({ submit, accompaniment }) {
       }
     };
   }, [audioFileUrl]);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      console.log("Key pressed:", event.key);
+      if (event.key in keyboardMap) {
+        onNote(keyboardMap[event.key]);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [keyboardMap]);
 
   useEffect(() => {
     let interval = null;
@@ -1654,7 +1615,7 @@ export function Recorder({ submit, accompaniment }) {
                       )}
                       {hasPermission && (
                         <>
-                          <InstrumentConfigEditor show={show} onSaved={handleClose} onAudioFileChange={setAudioFileUrl} onMidiDeviceSelect={handleMidiDeviceSelect}></InstrumentConfigEditor>
+                          <InstrumentConfigEditor show={show} onSaved={handleClose} onAudioFileChange={setAudioFileUrl} onMidiDeviceSelect={handleMidiDeviceSelect} onKeyMapChange={setKeyMappings}></InstrumentConfigEditor>
                         </>
 
                       )}
