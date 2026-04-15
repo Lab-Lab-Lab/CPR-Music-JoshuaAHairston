@@ -49,6 +49,7 @@ import {
   FaRegTrashAlt,
 } from 'react-icons/fa';
 import WaveSurfer from 'wavesurfer.js';
+import { MdOutlineKeyboard } from 'react-icons/md';
 
 // Create a silent audio buffer as scratch audio to initialize wavesurfer
 const createSilentAudio = () => {
@@ -1391,7 +1392,8 @@ export function Recorder({ submit, accompaniment }) {
       setHasPermission(true);
       webmidiIndex.current = 0;
       webmidiInput.current = WebMidi.inputs[webmidiIndex.current]; // FIXME: we need to list the inputs from the loop above in the config ui so the user can select their thing
-      webmidiInput.current.channels[1].addListener("noteon", onMidiNote);
+      webmidiInput.current.channels[1].addListener("noteon", onMidiNoteOn);
+      webmidiInput.current.channels[1].addListener("noteoff", onMidiNoteOff);
     }
   }
 
@@ -1405,6 +1407,7 @@ export function Recorder({ submit, accompaniment }) {
     await start();
     onEnabled();
   }
+  /*
   function playNote(e) {
     const accidental = e.note.accidental
     let note = e.note.name;
@@ -1419,16 +1422,52 @@ export function Recorder({ submit, accompaniment }) {
       console.warn("Sampler not ready yet, skipping note:", note);
     }
   }
-
-
-  function onMidiNote(e) {
-    if (midiInputModeRef.current !== "device") return;
-    playNote(e);
+*/
+  function getNoteString(noteObj) {
+    let note = noteObj.name;
+    if (noteObj.accidental !== undefined) {
+      note += noteObj.accidental;
+    }
+    note += noteObj.octave;
+    return note;
   }
 
-  function onKeyboardNote(e) {
+
+  function startNote(noteObj) {
+    const note = getNoteString(noteObj);
+    console.log("note on: ", note);
+    if (sampler.current && isSamplerLoadedRef.current) {
+      sampler.current.triggerAttack(note);
+    } else {
+      console.warn("Sampler not ready yet, skipping note:", note);
+    }
+  }
+
+  function stopNote(noteObj) {
+    const note = getNoteString(noteObj);
+    console.log("note off:", note);
+    if (sampler.current && isSamplerLoadedRef.current) {
+      sampler.current.triggerRelease(note);
+    }
+  }
+  function onMidiNoteOn(e) {
+    if (midiInputModeRef.current !== "device") return;
+    startNote(e.note);
+  }
+
+  function onMidiNoteOff(e) {
+    if (midiInputModeRef.current !== "device") return;
+    stopNote(e.note);
+  }
+
+  function onKeyboardNoteOff(e) {
     if (midiInputModeRef.current !== "keyboard") return;
-    playNote(e);
+    stopNote(e.note);
+  }
+
+  function onKeyboardNoteOn(e) {
+    if (midiInputModeRef.current !== "keyboard") return;
+    startNote(e.note);
   }
   // InstrumentConfigEditor and MidiTable are defined outside of Recorder
 
@@ -1441,12 +1480,14 @@ export function Recorder({ submit, accompaniment }) {
     console.log("Selected MIDI device index:", deviceIndex);
     // Remove listener from old device if it exists
     if (webmidiInput.current) {
-      webmidiInput.current.channels[1].removeListener("noteon", onMidiNote);
+      webmidiInput.current.channels[1].removeListener("noteon", onMidiNoteOn);
+      webmidiInput.current.channels[1].removeListener("noteoff", onMidiNoteOff);
     }
     // Update to new device
     webmidiIndex.current = deviceIndex;
     webmidiInput.current = WebMidi.inputs[deviceIndex];
-    webmidiInput.current.channels[1].addListener("noteon", onMidiNote);
+    webmidiInput.current.channels[1].addListener("noteon", onMidiNoteOn);
+    webmidiInput.current.channels[1].addListener("noteoff", onMidiNoteOff);
   };
 
 
@@ -1597,16 +1638,31 @@ export function Recorder({ submit, accompaniment }) {
     };
   }, [audioFileUrl]);
 
+  const pressedKeysRef = useRef(new Set());
   useEffect(() => {
     const handleKeyDown = (event) => {
-      console.log("Key pressed:", event.key);
-      if (event.key in keyboardMap) {
-        onKeyboardNote(keyboardMap[event.key]);
-      }
+      const key = event.key.toLowerCase();
+      console.log("Key pressed:", key);
+      if (!(key in keyboardMap)) return;
+      if (pressedKeysRef.current.has(key)) return;
+
+      pressedKeysRef.current.add(key);
+      onKeyboardNoteOn(keyboardMap[key]);
     };
+
+    const handleKeyUp = (event) => {
+      const key = event.key.toLowerCase();
+      if (!(key in keyboardMap)) return;
+
+      pressedKeysRef.current.delete(key);
+      onKeyboardNoteOff(keyboardMap[key]);
+    };
+
     window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
     };
   }, [keyboardMap]);
 
