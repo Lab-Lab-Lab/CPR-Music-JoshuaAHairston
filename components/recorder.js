@@ -778,14 +778,14 @@ function Config({ RecordingTypeChanged, value }) {
       Pick recording type:
       <select value={value} onChange={RecordingTypeChanged}>
         <option value="mic">Mic</option>
-        <option value="midi">Midi</option>
-        <option value="keyboard">Keyboard</option>
+        <option value="midi">MIDI / Keyboard</option>
       </select>
     </label>
   );
 }
 //TODO: maybe I should put this somewhere else?
 const DEFAULT_KEY_MAP = "awsedftgyhuj";
+const DEFAULT_MIDI_INPUT_MODE = "device";
 const KEY_MAP_NOTES = [
   { name: 'C', octave: 4, accidental: undefined },
   { name: 'C', octave: 4, accidental: '#' },
@@ -804,7 +804,7 @@ const KEY_MAP_NOTES = [
 const emptyDraft = () => ({
   name: "",
   description: "",
-  settings: { keyMap: DEFAULT_KEY_MAP },
+  settings: { keyMap: DEFAULT_KEY_MAP, midiInputMode: DEFAULT_MIDI_INPUT_MODE },
   file: null,
 });
 
@@ -1007,7 +1007,7 @@ function MidiTable({ value, onChange }) {
   )
 }
 
-function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null, onMidiDeviceSelect = null, onKeyMapChange = null }) {
+function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null, onMidiDeviceSelect = null, onKeyMapChange = null, onMidiInputModeChange = null }) {
   const [configs, setConfigs] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [draft, setDraft] = useState(emptyDraft());
@@ -1040,6 +1040,9 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
           if (onKeyMapChange) {
             onKeyMapChange(res[0].settings?.keyMap || DEFAULT_KEY_MAP);
           }
+          if (onMidiInputModeChange) {
+            onMidiInputModeChange(res[0].settings?.midiInputMode || DEFAULT_MIDI_INPUT_MODE);
+          }
         }
         else {
           setSelectedId(null);
@@ -1049,6 +1052,9 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
           }
           if (onKeyMapChange) {
             onKeyMapChange(DEFAULT_KEY_MAP);
+          }
+          if (onMidiInputModeChange) {
+            onMidiInputModeChange(DEFAULT_MIDI_INPUT_MODE);
           }
         }
       } catch (error) {
@@ -1082,6 +1088,9 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
     if (onKeyMapChange) {
       onKeyMapChange(config.settings?.keyMap || DEFAULT_KEY_MAP);
     }
+    if (onMidiInputModeChange) {
+      onMidiInputModeChange(config.settings?.midiInputMode || DEFAULT_MIDI_INPUT_MODE);
+    }
   };
   //TODO: Maybe put this in the useeffect? (like use it there as there's repeated code)
   const onNew = () => {
@@ -1092,6 +1101,23 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
     }
     if (onKeyMapChange) {
       onKeyMapChange(DEFAULT_KEY_MAP);
+    }
+    if (onMidiInputModeChange) {
+      onMidiInputModeChange(DEFAULT_MIDI_INPUT_MODE);
+    }
+  }
+
+  const handleMidiInputModeChange = (e) => {
+    const mode = e.target.value;
+    setDraft({
+      ...draft,
+      settings: {
+        ...draft.settings,
+        midiInputMode: mode,
+      },
+    });
+    if (onMidiInputModeChange) {
+      onMidiInputModeChange(mode);
     }
   }
 
@@ -1177,6 +1203,9 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
       if (onKeyMapChange) {
         onKeyMapChange(res.settings?.keyMap || DEFAULT_KEY_MAP);
       }
+      if (onMidiInputModeChange) {
+        onMidiInputModeChange(res.settings?.midiInputMode || DEFAULT_MIDI_INPUT_MODE);
+      }
 
       // this is a function refference passed from the parent to let it know we saved successfully
       //TODO: I don't see a point in this if statement
@@ -1255,6 +1284,19 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
           </label>
         </div>
       </div>
+      <div style={{ marginBottom: '1rem' }}>
+        <label>
+          Active Input:
+          <select
+            value={draft.settings?.midiInputMode || DEFAULT_MIDI_INPUT_MODE}
+            onChange={handleMidiInputModeChange}
+            style={{ marginLeft: '0.5rem' }}
+          >
+            <option value="device">MIDI Device</option>
+            <option value="keyboard">Computer Keyboard</option>
+          </select>
+        </label>
+      </div>
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
         <MidiTable
           value={draft.settings?.midiDeviceName || ""}
@@ -1326,6 +1368,11 @@ export function Recorder({ submit, accompaniment }) {
   const [show, setShow] = useState(false);
   const [audioFileUrl, setAudioFileUrl] = useState(null);
   const [keyMappings, setKeyMappings] = useState(DEFAULT_KEY_MAP);
+  const [midiInputMode, setMidiInputMode] = useState(DEFAULT_MIDI_INPUT_MODE);
+  const midiInputModeRef = useRef(DEFAULT_MIDI_INPUT_MODE);
+  useEffect(() => {
+    midiInputModeRef.current = midiInputMode;
+  }, [midiInputMode]);
   const handleClose = () => setShow(false);
   const handleShow = () => setShow(true);
 
@@ -1344,7 +1391,7 @@ export function Recorder({ submit, accompaniment }) {
       setHasPermission(true);
       webmidiIndex.current = 0;
       webmidiInput.current = WebMidi.inputs[webmidiIndex.current]; // FIXME: we need to list the inputs from the loop above in the config ui so the user can select their thing
-      webmidiInput.current.channels[1].addListener("noteon", onNote);
+      webmidiInput.current.channels[1].addListener("noteon", onMidiNote);
     }
   }
 
@@ -1358,25 +1405,30 @@ export function Recorder({ submit, accompaniment }) {
     await start();
     onEnabled();
   }
-  // TODO: Make two different onNotes so that they can't both run at the same time
-  function onNote(e) {
+  function playNote(e) {
     const accidental = e.note.accidental
     let note = e.note.name;
     if (accidental != undefined) {
       note += e.note.accidental;
     }
     note += e.note.octave;
-    // sampler.current.triggerAttackRelease(note, 4);
-    // if(hasPermission === true) {
     console.log("note on: ", note);
     if (sampler.current && isSamplerLoadedRef.current) {
-      // would be nice for the user to have notes not play for the full duration
-      // once they stop holding the key
       sampler.current.triggerAttackRelease(note, 4);
     } else {
       console.warn("Sampler not ready yet, skipping note:", note);
     }
+  }
 
+
+  function onMidiNote(e) {
+    if (midiInputModeRef.current !== "device") return;
+    playNote(e);
+  }
+
+  function onKeyboardNote(e) {
+    if (midiInputModeRef.current !== "keyboard") return;
+    playNote(e);
   }
   // InstrumentConfigEditor and MidiTable are defined outside of Recorder
 
@@ -1389,12 +1441,12 @@ export function Recorder({ submit, accompaniment }) {
     console.log("Selected MIDI device index:", deviceIndex);
     // Remove listener from old device if it exists
     if (webmidiInput.current) {
-      webmidiInput.current.channels[1].removeListener("noteon", onNote);
+      webmidiInput.current.channels[1].removeListener("noteon", onMidiNote);
     }
     // Update to new device
     webmidiIndex.current = deviceIndex;
     webmidiInput.current = WebMidi.inputs[deviceIndex];
-    webmidiInput.current.channels[1].addListener("noteon", onNote);
+    webmidiInput.current.channels[1].addListener("noteon", onMidiNote);
   };
 
 
@@ -1549,7 +1601,7 @@ export function Recorder({ submit, accompaniment }) {
     const handleKeyDown = (event) => {
       console.log("Key pressed:", event.key);
       if (event.key in keyboardMap) {
-        onNote(keyboardMap[event.key]);
+        onKeyboardNote(keyboardMap[event.key]);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -1615,7 +1667,7 @@ export function Recorder({ submit, accompaniment }) {
                       )}
                       {hasPermission && (
                         <>
-                          <InstrumentConfigEditor show={show} onSaved={handleClose} onAudioFileChange={setAudioFileUrl} onMidiDeviceSelect={handleMidiDeviceSelect} onKeyMapChange={setKeyMappings}></InstrumentConfigEditor>
+                          <InstrumentConfigEditor show={show} onSaved={handleClose} onAudioFileChange={setAudioFileUrl} onMidiDeviceSelect={handleMidiDeviceSelect} onKeyMapChange={setKeyMappings} onMidiInputModeChange={setMidiInputMode}></InstrumentConfigEditor>
                         </>
 
                       )}
