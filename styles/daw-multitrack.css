@@ -48,13 +48,13 @@
 .multitrack-editor .main-controls-row {
   min-height: 45px;
   max-height: 45px;
-  overflow: hidden;
+  overflow: visible;
   padding: 0.25rem 0;
 }
 
 .multitrack-editor .main-controls-row .d-flex {
   flex-wrap: nowrap;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Compact Button Styling */
@@ -126,7 +126,7 @@
 .multitrack-editor .controls-right {
   flex: 0 0 auto;
   max-width: 35%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Toolbar button styles */
