@@ -258,6 +258,23 @@ export async function mutateInstrumentConfiguration(config_id, instrument_config
   return json;
 }
 
+export async function deleteInstrumentConfiguration(config_id) {
+  const token = await getDjangoToken();
+  if (!token) return;
+
+  const API = `${process.env.NEXT_PUBLIC_BACKEND_HOST}/api`;
+  const url = `${API}/configs/${config_id}/`;
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: { Authorization: `Token ${token}` },
+  });
+
+  if (response.status !== 204 && (response.status < 200 || response.status >= 300)) {
+    throw new Error(`${response.status}: ${response.statusText}`);
+  }
+}
+
 export async function createInstrumentConfiguration(instrument_config, audioFile = null) {
   const endpoint = `configs/`;
   if (audioFile) {
