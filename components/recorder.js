@@ -1004,6 +1004,7 @@ function InstrumentConfigEditor({ show, mode, onSaved, onAudioFileChange, onMidi
   const [error, setError] = useState("");
   const [nameError, setNameError] = useState("");
   const [fileError, setFileError] = useState("");
+  const [midiError, setMidiError] = useState("");
 
   useEffect(() => {
     if (!show) {
@@ -1116,6 +1117,12 @@ function InstrumentConfigEditor({ show, mode, onSaved, onAudioFileChange, onMidi
       return;
     }
     setNameError("");
+
+    if (mode === "midi" && !draft.settings?.midiDeviceName) {
+      setMidiError("Please select a MIDI device before saving.");
+      return;
+    }
+    setMidiError("");
 
     const isNew = selectedId === null;
     const hasNoFile = !draft.file;
@@ -1237,7 +1244,7 @@ function InstrumentConfigEditor({ show, mode, onSaved, onAudioFileChange, onMidi
               <option value="">-- No configs available --</option>
             ) : (
               <>
-                <option value="">-- Select a config --</option>
+                <option value="" disabled>-- Select a config --</option>
                 {configs.map((config) => (
                   <option key={config.id} value={config.id}>
                     {config.name || `Config ${config.id}`}
@@ -1291,6 +1298,9 @@ function InstrumentConfigEditor({ show, mode, onSaved, onAudioFileChange, onMidi
             value={draft.settings?.midiDeviceName || ""}
             onChange={handleMidiDeviceChange}
           />
+          {midiError && (
+            <div style={{ marginTop: '0.25rem', fontSize: '0.8rem', color: 'red' }}>{midiError}</div>
+          )}
         </div>
       )}
 
