@@ -779,7 +779,7 @@ class SandboxSynth {
     }
 
     // Process each unison voice
-    voices.forEach(voice => {
+    voices.forEach((voice, i) => {
       const voiceId = voice.id;
 
     // Create oscillator mixer
