@@ -994,11 +994,9 @@ function toRelativeMediaUrl(url) {
   return parsed.pathname + parsed.search;
 }
 
-function InstrumentConfigEditor({ show, mode, onSaved, onAudioFileChange, onMidiDeviceSelect, onKeyMapChange, persistedSelectedId, onSelectedIdChange }) {
-  const [configs, setConfigs] = useState([]);
+function InstrumentConfigEditor({ show, mode, onSaved, onAudioFileChange, onMidiDeviceSelect, onKeyMapChange, persistedSelectedId, onSelectedIdChange, configs, setConfigs }) {
   const [selectedId, setSelectedId] = useState(null);
   const [draft, setDraft] = useState(emptyDraft());
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -1007,42 +1005,32 @@ function InstrumentConfigEditor({ show, mode, onSaved, onAudioFileChange, onMidi
   const [midiError, setMidiError] = useState("");
 
   useEffect(() => {
-    if (!show) {
-      return;
-    }
-    (async () => {
-      setError("");
-      setLoading(true);
-      try {
-        const res = await getInstrumentConfigurations()
-        setConfigs(res);
-        //TODO: remember the last selected config?
-        if (res.length > 0) {
-          const initial = res.find((c) => c.id === persistedSelectedId) || res[0];
-          console.log(`initial config: ${JSON.stringify(initial)}`);
-          setSelectedId(initial.id);
-          setDraft({
-            name: initial.name,
-            description: initial.description,
-            settings: initial.settings,
-            file: initial.file || null,
-          });
-          onAudioFileChange(toRelativeMediaUrl(initial.file));
-          onKeyMapChange(initial.settings?.keyMap || DEFAULT_KEY_MAP);
+    if (!show) return;
+    setError("");
+    try {
+      if (configs.length > 0) {
+        const initial = configs.find((c) => c.id === persistedSelectedId) || configs[0];
+        setSelectedId(initial.id);
+        setDraft({
+          name: initial.name,
+          description: initial.description,
+          settings: initial.settings,
+          file: initial.file || null,
+        });
+        onAudioFileChange(toRelativeMediaUrl(initial.file));
+        onKeyMapChange(initial.settings?.keyMap || DEFAULT_KEY_MAP);
+        if (mode === "midi" && initial.settings?.midiDeviceName) {
+          onMidiDeviceSelect(initial.settings.midiDeviceName);
         }
-        else {
-          setSelectedId(null);
-          setDraft(emptyDraft());
-          onAudioFileChange(null);
-          onKeyMapChange(DEFAULT_KEY_MAP);
-        }
-      } catch (error) {
-        setError(String(error));
-      } finally {
-        setLoading(false);
+      } else {
+        setSelectedId(null);
+        setDraft(emptyDraft());
+        onAudioFileChange(null);
+        onKeyMapChange(DEFAULT_KEY_MAP);
       }
-    })();
-
+    } catch (error) {
+      setError(String(error));
+    }
   }, [show]);
 
   const onSelectedConfig = (id) => {
@@ -1173,6 +1161,7 @@ function InstrumentConfigEditor({ show, mode, onSaved, onAudioFileChange, onMidi
         file: res.file || null,
       });
 
+      onSelectedIdChange(res.id);
       onAudioFileChange(toRelativeMediaUrl(res.file));
       onKeyMapChange(res.settings?.keyMap || DEFAULT_KEY_MAP);
       onSaved();
@@ -1214,10 +1203,6 @@ function InstrumentConfigEditor({ show, mode, onSaved, onAudioFileChange, onMidi
       setDeleting(false);
     }
   };
-
-  if (loading) {
-    return <div>Loading configurations...</div>;
-  }
 
   if (error) {
     return <div style={{ color: 'red' }}>Error: {error}</div>;
@@ -1399,6 +1384,18 @@ export function Recorder({ submit, accompaniment }) {
   const [show, setShow] = useState(false);
   const [audioFileUrl, setAudioFileUrl] = useState(null);
   const [persistedConfigId, setPersistedConfigId] = useState(null);
+  const [configs, setConfigs] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await getInstrumentConfigurations();
+        setConfigs(res);
+      } catch (err) {
+        console.error('Failed to load instrument configurations:', err);
+      }
+    })();
+  }, []);
   const [keyMappings, setKeyMappings] = useState(DEFAULT_KEY_MAP);
   const recordingTypeRef = useRef(recordingType);
   const pressedKeysRef = useRef(new Set());
@@ -1754,6 +1751,8 @@ export function Recorder({ submit, accompaniment }) {
                       onKeyMapChange={setKeyMappings}
                       persistedSelectedId={persistedConfigId}
                       onSelectedIdChange={setPersistedConfigId}
+                      configs={configs}
+                      setConfigs={setConfigs}
                     />
                   )}
                 </Modal.Body>
