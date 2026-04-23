@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BiRename } from 'react-icons/bi';
 import {
   Card,
@@ -26,7 +26,7 @@ import { AudioDropModal } from './audio/silenceDetect';
 import { catchSilence, setupAudioContext } from '../lib/dawUtils';
 import StatusIndicator from './statusIndicator';
 import styles from '../styles/recorder.module.css';
-import { getInstrumentConfigurations, mutateInstrumentConfiguration, createInstrumentConfiguration } from "../api";
+import { getInstrumentConfigurations, mutateInstrumentConfiguration, createInstrumentConfiguration, deleteInstrumentConfiguration } from "../api";
 import MicRecorder from 'mic-recorder-to-mp3';
 import { IoSettingsSharp } from "react-icons/io5";
 import Modal from 'react-bootstrap/Modal'
@@ -49,6 +49,7 @@ import {
   FaRegTrashAlt,
 } from 'react-icons/fa';
 import WaveSurfer from 'wavesurfer.js';
+import { MdOutlineKeyboard } from 'react-icons/md';
 
 // Create a silent audio buffer as scratch audio to initialize wavesurfer
 const createSilentAudio = () => {
@@ -778,19 +779,13 @@ function Config({ RecordingTypeChanged, value }) {
       Pick recording type:
       <select value={value} onChange={RecordingTypeChanged}>
         <option value="mic">Mic</option>
-        <option value="midi">Midi</option>
+        <option value="midi">MIDI</option>
         <option value="keyboard">Keyboard</option>
       </select>
     </label>
   );
 }
 //TODO: maybe I should put this somewhere else?
-const emptyDraft = () => ({
-  name: "",
-  description: "",
-  settings: {},
-  file: null,
-});
 
 function AudioViewer({ src }) {
   const containerW = useRef(null);
@@ -975,14 +970,14 @@ function AudioViewer({ src }) {
 
 function MidiTable({ value, onChange }) {
   return (
-    <label>
-      Pick Midi Device
+    <label style={{ display: 'block', width: '100%' }}>
+      <span style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#555', marginBottom: '0.25rem' }}>MIDI Device</span>
       <select
         value={value || ""}
         onChange={onChange}
-        style={{ width: '100%', marginTop: '0.25rem' }}
+        style={{ width: '100%' }}
       >
-        <option value="">-- Select a MIDI device --</option>
+        <option value="" disabled>-- Select a MIDI device --</option>
         {WebMidi.inputs.map((device) => (
           <option key={device.id} value={device.name}>{device.name}</option>
         ))}
@@ -991,55 +986,56 @@ function MidiTable({ value, onChange }) {
   )
 }
 
-function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null, onMidiDeviceSelect = null }) {
-  const [configs, setConfigs] = useState([]);
+// Convert absolute backend media URLs to relative paths so Next.js proxies them
+// (avoids CORS errors when Tone.js Sampler fetches the file cross-origin).
+function toRelativeMediaUrl(url) {
+  if (!url) return null;
+  const parsed = new URL(url);
+  return parsed.pathname + parsed.search;
+}
+
+function InstrumentConfigEditor({ show, mode, onSaved, onAudioFileChange, onMidiDeviceSelect, onKeyMapChange, persistedSelectedId, onSelectedIdChange, configs, setConfigs }) {
   const [selectedId, setSelectedId] = useState(null);
   const [draft, setDraft] = useState(emptyDraft());
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
+  const [nameError, setNameError] = useState("");
+  const [fileError, setFileError] = useState("");
+  const [midiError, setMidiError] = useState("");
 
   useEffect(() => {
-    if (!show) {
-      return;
-    }
-    (async () => {
-      setError("");
-      setLoading(true);
-      try {
-        const res = await getInstrumentConfigurations()
-        setConfigs(res);
-        //TODO: remember the last selected config?
-        if (res.length > 0) {
-          setSelectedId(res[0].id);
-          setDraft({
-            name: res[0].name,
-            description: res[0].description,
-            settings: res[0].settings,
-            file: res[0].file || null,
-          });
-          if (onAudioFileChange) {
-            onAudioFileChange(res[0].file || null);
-          }
+    if (!show) return;
+    setError("");
+    try {
+      if (configs.length > 0) {
+        const initial = configs.find((c) => c.id === persistedSelectedId) || configs[0];
+        setSelectedId(initial.id);
+        setDraft({
+          name: initial.name,
+          description: initial.description,
+          settings: initial.settings,
+          file: initial.file || null,
+        });
+        onAudioFileChange(toRelativeMediaUrl(initial.file));
+        onKeyMapChange(initial.settings?.keyMap || DEFAULT_KEY_MAP);
+        if (mode === "midi" && initial.settings?.midiDeviceName) {
+          onMidiDeviceSelect(initial.settings.midiDeviceName);
         }
-        else {
-          setSelectedId(null);
-          setDraft(emptyDraft());
-          if (onAudioFileChange) {
-            onAudioFileChange(null);
-          }
-        }
-      } catch (error) {
-        setError(String(error));
-      } finally {
-        setLoading(false);
+      } else {
+        setSelectedId(null);
+        setDraft(emptyDraft());
+        onAudioFileChange(null);
+        onKeyMapChange(DEFAULT_KEY_MAP);
       }
-    })();
-
+    } catch (error) {
+      setError(String(error));
+    }
   }, [show]);
 
   const onSelectedConfig = (id) => {
     setSelectedId(id);
+    onSelectedIdChange(id);
     const config = configs.find((c) => c.id === id);
 
     if (!config) return;
@@ -1050,21 +1046,29 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
       settings: config.settings,
       file: config.file || null,
     });
-    if (onAudioFileChange) {
-      onAudioFileChange(config.file || null);
-    }
-    // If there's a saved MIDI device, set it as the active input
-    if (config.settings?.midiDeviceName && onMidiDeviceSelect) {
+    onAudioFileChange(toRelativeMediaUrl(config.file));
+    if (config.settings?.midiDeviceName) {
       onMidiDeviceSelect(config.settings.midiDeviceName);
     }
+    onKeyMapChange(config.settings?.keyMap || DEFAULT_KEY_MAP);
   };
   //TODO: Maybe put this in the useeffect? (like use it there as there's repeated code)
   const onNew = () => {
     setSelectedId(null);
     setDraft(emptyDraft());
-    if (onAudioFileChange) {
-      onAudioFileChange(null);
-    }
+    onAudioFileChange(null);
+    onKeyMapChange(DEFAULT_KEY_MAP);
+  }
+
+  const handleKeyMapChange = (e) => {
+    const keyMap = e.target.value;
+    setDraft({
+      ...draft,
+      settings: {
+        ...draft.settings,
+        keyMap,
+      },
+    });
   }
 
   const handleMidiDeviceChange = (e) => {
@@ -1079,8 +1083,7 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
       },
     });
 
-    // Also update the active MIDI input immediately
-    if (deviceName && onMidiDeviceSelect) {
+    if (deviceName) {
       onMidiDeviceSelect(deviceName);
     }
   }
@@ -1091,6 +1094,32 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
   };
 
   const save = async () => {
+    const trimmedName = draft.name.trim();
+    if (!trimmedName) {
+      setNameError("Name is required.");
+      return;
+    }
+    const duplicate = configs.find((c) => c.name.trim() === trimmedName && c.id !== selectedId);
+    if (duplicate) {
+      setNameError("A configuration with this name already exists.");
+      return;
+    }
+    setNameError("");
+
+    if (mode === "midi" && !draft.settings?.midiDeviceName) {
+      setMidiError("Please select a MIDI device before saving.");
+      return;
+    }
+    setMidiError("");
+
+    const isNew = selectedId === null;
+    const hasNoFile = !draft.file;
+    if (isNew && hasNoFile) {
+      setFileError("Please upload an audio sample before saving.");
+      return;
+    }
+    setFileError("");
+
     setError("");
     setSaving(true);
 
@@ -1132,16 +1161,10 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
         file: res.file || null,
       });
 
-      if (onAudioFileChange) {
-        onAudioFileChange(res.file || null);
-      }
-
-      // this is a function refference passed from the parent to let it know we saved successfully
-      //TODO: I don't see a point in this if statement
-      if (onSaved) {
-        // This closes the modal.
-        onSaved();
-      }
+      onSelectedIdChange(res.id);
+      onAudioFileChange(toRelativeMediaUrl(res.file));
+      onKeyMapChange(res.settings?.keyMap || DEFAULT_KEY_MAP);
+      onSaved();
 
     } catch (error) {
       setError(String(error));
@@ -1150,34 +1173,63 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
     }
   };
 
-  if (loading) {
-    return <div>Loading configurations...</div>;
-  }
+  const deleteConfig = async () => {
+    if (!selectedId) return;
+    if (!window.confirm('Delete this configuration? This cannot be undone.')) return;
+
+    setError("");
+    setDeleting(true);
+    try {
+      await deleteInstrumentConfiguration(selectedId);
+      const res = await getInstrumentConfigurations();
+      setConfigs(res);
+      if (res.length > 0) {
+        const next = res[0];
+        setSelectedId(next.id);
+        setDraft({ name: next.name, description: next.description, settings: next.settings, file: next.file || null });
+        onSelectedIdChange(next.id);
+        onAudioFileChange(toRelativeMediaUrl(next.file));
+        onKeyMapChange(next.settings?.keyMap || DEFAULT_KEY_MAP);
+      } else {
+        setSelectedId(null);
+        setDraft(emptyDraft());
+        onSelectedIdChange(null);
+        onAudioFileChange(null);
+        onKeyMapChange(DEFAULT_KEY_MAP);
+      }
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (error) {
     return <div style={{ color: 'red' }}>Error: {error}</div>;
   }
 
-  return (
-    <div>
-      <div style={{ display: 'flex', marginBottom: '1rem', justifyContent: 'center', alignItems: 'center', marginTop: '1rem', borderTop: '2px solid lightgray', paddingTop: '1rem' }}>
-        <Button onClick={onNew} variant="primary">New Config</Button>
-      </div>
+  const fieldLabel = (text) => (
+    <span style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#555', marginBottom: '0.25rem' }}>{text}</span>
+  );
 
-      <div style={{ marginBottom: '1rem' }}>
-        <label>
-          Select Configuration:
+  return (
+    <div style={{ borderTop: '2px solid #e9ecef', paddingTop: '1rem', marginTop: '0.5rem' }}>
+
+      {/* Config selector + New button */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', marginBottom: '1rem' }}>
+        <label style={{ flex: 1, marginBottom: 0 }}>
+          {fieldLabel('Configuration')}
           <select
             value={selectedId ?? ""}
             onChange={(e) => onSelectedConfig(Number(e.target.value))}
-            style={{ marginLeft: '0.5rem' }}
+            style={{ width: '100%' }}
             disabled={configs.length === 0}
           >
             {configs.length === 0 ? (
               <option value="">-- No configs available --</option>
             ) : (
               <>
-                <option value="">-- Select a config --</option>
+                <option value="" disabled>-- Select a config --</option>
                 {configs.map((config) => (
                   <option key={config.id} value={config.id}>
                     {config.name || `Config ${config.id}`}
@@ -1187,62 +1239,121 @@ function InstrumentConfigEditor({ show, onSaved = null, onAudioFileChange = null
             )}
           </select>
         </label>
-      </div>
-
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-        <div style={{ flex: 1 }}>
-          <label>
-            Name:
-            <input
-              type="text"
-              value={draft.name}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              style={{ width: '100%', marginTop: '0.25rem' }}
-            />
-          </label>
-        </div>
-        <div style={{ flex: 1 }}>
-          <label>
-            Description:
-            <input
-              type="text"
-              value={draft.description}
-              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-              style={{ width: '100%', marginTop: '0.25rem' }}
-            />
-          </label>
-        </div>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-        <MidiTable
-          value={draft.settings?.midiDeviceName || ""}
-          onChange={handleMidiDeviceChange}
-        />
-      </div>
-      <div style={{ marginBottom: '1rem' }}>
-        <label>
-          Audio Sample (C5, mp3 or wav):
-          <input
-            type="file"
-            accept=".mp3,.wav"
-            onChange={handleFileChange}
-            style={{ marginLeft: '0.5rem' }}
-          />
-        </label>
-        {typeof draft.file === 'string' && draft.file && (
-          <div style={{ marginTop: '0.25rem', fontSize: '0.85rem', color: 'gray' }}>
-            Current file: {draft.file}
-          </div>
-        )}
-      </div>
-      <div>
-        <Button onClick={save} disabled={saving} variant="success">
+        <Button onClick={onNew} variant="outline-primary" size="sm" style={{ whiteSpace: 'nowrap' }}>
+          + New
+        </Button>
+        <Button onClick={save} disabled={saving} variant="outline-success" size="sm" style={{ whiteSpace: 'nowrap' }}>
           {saving ? 'Saving...' : 'Save'}
         </Button>
+        <Button onClick={deleteConfig} variant="outline-danger" size="sm" disabled={!selectedId || deleting} style={{ whiteSpace: 'nowrap' }}>
+          {deleting ? 'Deleting...' : 'Delete'}
+        </Button>
       </div>
+
+      {/* Name + Description */}
+      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
+        <label style={{ flex: 1, marginBottom: 0 }}>
+          {fieldLabel('Name')}
+          <input
+            type="text"
+            value={draft.name}
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            style={{ width: '100%' }}
+          />
+          {nameError && (
+            <div style={{ marginTop: '0.25rem', fontSize: '0.8rem', color: 'red' }}>{nameError}</div>
+          )}
+        </label>
+        <label style={{ flex: 1, marginBottom: 0 }}>
+          {fieldLabel('Description')}
+          <input
+            type="text"
+            value={draft.description}
+            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+            style={{ width: '100%' }}
+          />
+        </label>
+      </div>
+
+      <hr style={{ margin: '0.75rem 0' }} />
+
+      {mode === "midi" && (
+        <div style={{ marginBottom: '0.75rem' }}>
+          <MidiTable
+            value={draft.settings?.midiDeviceName || ""}
+            onChange={handleMidiDeviceChange}
+          />
+          {midiError && (
+            <div style={{ marginTop: '0.25rem', fontSize: '0.8rem', color: 'red' }}>{midiError}</div>
+          )}
+        </div>
+      )}
+
+      {mode === "keyboard" && (
+        <div style={{ marginBottom: '0.75rem' }}>
+          <label style={{ display: 'block', width: '100%', marginBottom: 0 }}>
+            {fieldLabel('Keyboard Mapping')}
+            <span style={{ display: 'block', fontSize: '0.75rem', color: '#888', marginBottom: '0.25rem' }}>
+              13 keys mapping C C# D D# E F F# G G# A A# B C
+            </span>
+            <input
+              type="text"
+              value={draft.settings?.keyMap || ""}
+              onChange={handleKeyMapChange}
+              maxLength={13}
+              style={{ width: '100%', fontFamily: 'monospace', letterSpacing: '0.5rem' }}
+            />
+          </label>
+        </div>
+      )}
+
+      <hr style={{ margin: '0.75rem 0' }} />
+
+      {/* Audio Sample */}
+      <div style={{ marginBottom: '1rem' }}>
+        {fieldLabel('Audio Sample (C5, mp3 or wav)')}
+        <input
+          type="file"
+          accept=".mp3,.wav"
+          onChange={handleFileChange}
+        />
+        {typeof draft.file === 'string' && draft.file && (
+          <div style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: '#888' }}>
+            Current: {draft.file.split('/').pop()}
+          </div>
+        )}
+        {fileError && (
+          <div style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: 'red' }}>{fileError}</div>
+        )}
+      </div>
+
     </div>
   );
 }
+
+const DEFAULT_KEY_MAP = "awsedftgyhujk";
+const KEY_MAP_NOTES = [
+  { name: 'C', octave: 4, accidental: undefined },
+  { name: 'C', octave: 4, accidental: '#' },
+  { name: 'D', octave: 4, accidental: undefined },
+  { name: 'D', octave: 4, accidental: '#' },
+  { name: 'E', octave: 4, accidental: undefined },
+  { name: 'F', octave: 4, accidental: undefined },
+  { name: 'F', octave: 4, accidental: '#' },
+  { name: 'G', octave: 4, accidental: undefined },
+  { name: 'G', octave: 4, accidental: '#' },
+  { name: 'A', octave: 4, accidental: undefined },
+  { name: 'A', octave: 4, accidental: '#' },
+  { name: 'B', octave: 4, accidental: undefined },
+  { name: 'C', octave: 5, accidental: undefined },
+];
+
+const emptyDraft = () => ({
+  name: "",
+  description: "",
+  settings: { keyMap: DEFAULT_KEY_MAP },
+  file: null,
+});
 
 export function Recorder({ submit, accompaniment }) {
   // const Mp3Recorder = new MicRecorder({ bitRate: 128 }); // 128 is default already
@@ -1255,8 +1366,9 @@ export function Recorder({ submit, accompaniment }) {
   const dispatch = useDispatch();
   const [min, setMinute] = useState(0);
   const [sec, setSecond] = useState(0);
-  const [isSamplerLoaded, setSamplerLoaded] = useState(false);
-  const [hasPermission, setHasPermission] = useState(false);
+  const isSamplerLoadedRef = useRef(false);
+  const [hasKeyboardPermission, setHasKeyboardPermission] = useState(false);
+  const [hasMidiPermission, setHasMidiPermission] = useState(false);
   const tRecorder = useRef(null);
   const sampler = useRef(null);
   const webmidiInput = useRef(null);
@@ -1271,6 +1383,25 @@ export function Recorder({ submit, accompaniment }) {
   });
   const [show, setShow] = useState(false);
   const [audioFileUrl, setAudioFileUrl] = useState(null);
+  const [persistedConfigId, setPersistedConfigId] = useState(null);
+  const [configs, setConfigs] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await getInstrumentConfigurations();
+        setConfigs(res);
+      } catch (err) {
+        console.error('Failed to load instrument configurations:', err);
+      }
+    })();
+  }, []);
+  const [keyMappings, setKeyMappings] = useState(DEFAULT_KEY_MAP);
+  const recordingTypeRef = useRef(recordingType);
+  const pressedKeysRef = useRef(new Set());
+  useEffect(() => {
+    recordingTypeRef.current = recordingType;
+  }, [recordingType]);
   const handleClose = () => setShow(false);
   const handleShow = () => setShow(true);
 
@@ -1281,45 +1412,78 @@ export function Recorder({ submit, accompaniment }) {
     setBlobData();
   }, [partType]);
 
-  function onEnabled() {
-
-    if (WebMidi.inputs.length < 1 && recordingType == "midi") {
-      console.error('tried to give permission, but no inputs');
-    } else {
-      setHasPermission(true);
-      webmidiIndex.current = 0;
-      webmidiInput.current = WebMidi.inputs[webmidiIndex.current]; // FIXME: we need to list the inputs from the loop above in the config ui so the user can select their thing
-      webmidiInput.current.channels[1].addListener("noteon", onNote);
+  async function enableKeyboard() {
+    if (!hasKeyboardPermission) {
+      await start();
     }
+    setHasKeyboardPermission(true);
   }
 
-
-  async function enableMidiTone() {
+  async function enableMidi() {
     await WebMidi.enable().catch((err) => {
       alert(err);
       return;
     });
-    console.log("before start");
-    await start();
-    onEnabled();
+    if (WebMidi.inputs.length < 1) {
+      console.error('tried to give permission, but no inputs');
+      return;
+    }
+    if (!hasKeyboardPermission) {
+      await start();
+    }
+    webmidiIndex.current = 0;
+    webmidiInput.current = WebMidi.inputs[webmidiIndex.current];
+    webmidiInput.current.channels[1].addListener("noteon", onMidiNoteOn);
+    webmidiInput.current.channels[1].addListener("noteoff", onMidiNoteOff);
+    setHasMidiPermission(true);
+    setHasKeyboardPermission(true);
   }
 
-  function onNote(e) {
-    const accidental = e.note.accidental
-    let note = e.note.name;
-    if (accidental != undefined) {
-      note += e.note.accidental;
+  function getNoteString(noteObj) {
+    let note = noteObj.name;
+    if (noteObj.accidental !== undefined) {
+      note += noteObj.accidental;
     }
-    note += e.note.octave;
-    // sampler.current.triggerAttackRelease(note, 4);
-    // if(hasPermission === true) {
-    console.log("note on: ", note);
-    loaded().then(() => {
-      // would be nice for the user to have notes not play for the full duration
-      // once they stop holding the key
-      sampler.current.triggerAttackRelease(note, 4);
-    });
+    note += noteObj.octave;
+    return note;
+  }
 
+
+  function startNote(noteObj) {
+    const note = getNoteString(noteObj);
+    console.log("note on: ", note);
+    if (sampler.current && isSamplerLoadedRef.current) {
+      sampler.current.triggerAttack(note);
+    } else {
+      alert("No audio file loaded. Please open settings and upload an audio sample before playing.");
+    }
+  }
+
+  function stopNote(noteObj) {
+    const note = getNoteString(noteObj);
+    console.log("note off:", note);
+    if (sampler.current && isSamplerLoadedRef.current) {
+      sampler.current.triggerRelease(note);
+    }
+  }
+  function onMidiNoteOn(e) {
+    if (recordingTypeRef.current !== "midi") return;
+    startNote(e.note);
+  }
+
+  function onMidiNoteOff(e) {
+    if (recordingTypeRef.current !== "midi") return;
+    stopNote(e.note);
+  }
+
+  function onKeyboardNoteOff(e) {
+    if (recordingTypeRef.current !== "keyboard") return;
+    stopNote(e.note);
+  }
+
+  function onKeyboardNoteOn(e) {
+    if (recordingTypeRef.current !== "keyboard") return;
+    startNote(e.note);
   }
   // InstrumentConfigEditor and MidiTable are defined outside of Recorder
 
@@ -1332,12 +1496,14 @@ export function Recorder({ submit, accompaniment }) {
     console.log("Selected MIDI device index:", deviceIndex);
     // Remove listener from old device if it exists
     if (webmidiInput.current) {
-      webmidiInput.current.channels[1].removeListener("noteon", onNote);
+      webmidiInput.current.channels[1].removeListener("noteon", onMidiNoteOn);
+      webmidiInput.current.channels[1].removeListener("noteoff", onMidiNoteOff);
     }
     // Update to new device
     webmidiIndex.current = deviceIndex;
     webmidiInput.current = WebMidi.inputs[deviceIndex];
-    webmidiInput.current.channels[1].addListener("noteon", onNote);
+    webmidiInput.current.channels[1].addListener("noteon", onMidiNoteOn);
+    webmidiInput.current.channels[1].addListener("noteoff", onMidiNoteOff);
   };
 
 
@@ -1345,7 +1511,9 @@ export function Recorder({ submit, accompaniment }) {
   const startRecording = (ev) => {
     if (isBlocked) {
       console.error('cannot record, microphone permissions are blocked');
-    } else if (recordingType == "mic") {
+      return;
+    }
+    if (recordingType === "mic") {
       //TODO make a prompt for the user to select if they are using midi or an instrument
       accompanimentRef.current.play();
       recorder
@@ -1355,6 +1523,11 @@ export function Recorder({ submit, accompaniment }) {
         })
         .catch((err) => console.error('problem starting recording', err));
     } else {
+      const permitted = recordingType === "midi" ? hasMidiPermission : hasKeyboardPermission;
+      if (!permitted) {
+        alert(`Please open settings and click "Enable ${recordingType === "midi" ? "MIDI" : "Keyboard"}" before recording.`);
+        return;
+      }
       accompanimentRef.current.play();
       tRecorder.current.start().then(() => {
         setIsRecording(true);
@@ -1399,10 +1572,7 @@ export function Recorder({ submit, accompaniment }) {
               data: blob,
             },
           ]);
-          // a.href = url;
-          // a.textContent = "Listen to recording";
-          // a.download = "test.ogg"
-          // document.body.appendChild(a);
+
           setIsRecording(false);
         })
         .catch((e) => console.error('error stopping recording midi/keyboard'))
@@ -1427,114 +1597,15 @@ export function Recorder({ submit, accompaniment }) {
     setBlobInfo(newInfo);
   }
   // Start of integration
-  const keyboardMap = {
-    'a': {
-      qwerty: 'a',
-      note: {
-        name: 'C',
-        octave: 4,
-        accidental: undefined,
-      }
-    },
-    'w': {
-      qwerty: 'w',
-      note: {
-        name: 'C',
-        octave: 4,
-        accidental: '#',
-      }
-    },
-    's': {
-      qwerty: 's',
-      note: {
-        name: 'D',
-        octave: 4,
-        accidental: undefined,
-      }
-    },
-    'e': {
-      qwerty: 'e',
-      note: {
-        name: 'D',
-        octave: 4,
-        accidental: '#',
-      }
-    },
-    'd': {
-      qwerty: 'd',
-      note: {
-        name: 'E',
-        octave: 4,
-        accidental: undefined,
-      }
-    },
-    'f': {
-      qwerty: 'f',
-      note: {
-        name: 'F',
-        octave: 4,
-        accidental: undefined,
-      }
-    },
-    't': {
-      qwerty: 't',
-      note: {
-        name: 'F',
-        octave: 4,
-        accidental: '#',
-      }
-    },
-    'g': {
-      qwerty: 'g',
-      note: {
-        name: 'G',
-        octave: 4,
-        accidental: undefined,
-      }
-    },
-
-    'y': {
-      qwerty: 'y',
-      note: {
-        name: 'G',
-        octave: 4,
-        accidental: '#',
-      }
-    },
-    'h': {
-      qwerty: 'h',
-      note: {
-        name: 'A',
-        octave: 4,
-        accidental: undefined,
-      }
-    },
-    'u': {
-      qwerty: 'u',
-      note: {
-        name: 'A',
-        octave: 4,
-        accidental: '#',
-      }
-    },
-    'j': {
-      qwerty: 'j',
-      note: {
-        name: 'B',
-        octave: 4,
-        accidental: undefined,
-      }
-    },
-    'k': {
-      qwerty: 'k',
-      note: {
-        name: 'C',
-        octave: 5,
-        accidental: undefined,
-      }
-    },
-
-  }
+  const keyboardMap = useMemo(() => {
+    const map = {};
+    for (let i = 0; i < KEY_MAP_NOTES.length; i++) {
+      const key = keyMappings[i];
+      if (!key) continue;
+      map[key] = { qwerty: key, note: KEY_MAP_NOTES[i] };
+    }
+    return map;
+  }, [keyMappings]);
   // check for recording permissions
   useEffect(() => {
     if (
@@ -1554,40 +1625,59 @@ export function Recorder({ submit, accompaniment }) {
           setIsBlocked(true);
         });
     }
-    const handleKeyDown = (event) => {
-      console.log("Key pressed:", event.key);
-      if (event.key in keyboardMap) {
-        onNote(keyboardMap[event.key]);
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
     tRecorder.current = new toneRecorder();
     getDestination().connect(tRecorder.current);
 
-    const samples = audioFileUrl
-      ? { C5: audioFileUrl }
-      : {
-        C5: "/audio/viola_c5.wav",
-        A4: "/audio/viola_a4.wav",
-        B4: "/audio/viola_b4.wav",
-        D4: "/audio/viola_d4.wav",
-        E4: "/audio/viola_e4.wav",
-        F4: "/audio/viola_f4.wav",
-        G4: "/audio/viola_g4.wav",
-      };
+    if (!audioFileUrl) return;
 
-    sampler.current = new Sampler(samples, {
-      onload: () => {
-        setSamplerLoaded(true);
+    const newSampler = new Sampler({ C5: audioFileUrl }).toDestination();
+    sampler.current = newSampler;
+    loaded().then(() => {
+      if (sampler.current === newSampler) {
+        isSamplerLoadedRef.current = true;
       }
-    }).toDestination();
+    }).catch((err) => {
+      console.error("Sampler failed to load audio:", err);
+    });
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
+      isSamplerLoadedRef.current = false;
       if (sampler.current) {
         sampler.current.dispose();
+        sampler.current = null;
       }
     };
   }, [audioFileUrl]);
+
+  useEffect(() => {
+    const isTypingTarget = (el) => ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
+
+    const handleKeyDown = (event) => {
+      if (isTypingTarget(event.target)) return;
+      const key = event.key.toLowerCase();
+      console.log("Key pressed:", key);
+      if (!(key in keyboardMap)) return;
+      if (pressedKeysRef.current.has(key)) return;
+
+      pressedKeysRef.current.add(key);
+      onKeyboardNoteOn(keyboardMap[key]);
+    };
+
+    const handleKeyUp = (event) => {
+      if (isTypingTarget(event.target)) return;
+      const key = event.key.toLowerCase();
+      if (!(key in keyboardMap)) return;
+
+      pressedKeysRef.current.delete(key);
+      onKeyboardNoteOff(keyboardMap[key]);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [keyboardMap]);
 
   useEffect(() => {
     let interval = null;
@@ -1633,26 +1723,38 @@ export function Recorder({ submit, accompaniment }) {
 
                 </IoSettingsSharp>
               </Button>
-              <Modal show={show} onHide={handleClose}>
-                <Modal.Header>
-                  <Modal.Title> Recording Settings</Modal.Title>
+              <Modal show={show} onHide={handleClose} size="lg">
+                <Modal.Header closeButton>
+                  <Modal.Title>Recording Settings</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                  <div className="row">
-                    <div className="col d-flex flex-column align-items-center">
-                      <Config RecordingTypeChanged={handleRecordingTypeChange} value={recordingType}></Config>
-                      {(recordingType === "midi" || recordingType === "keyboard") && (
-                        <Button variant="primary" onClick={enableMidiTone}>Enable Midi and Keyboard</Button>
-                      )}
-                      {hasPermission && (
-                        <>
-                          <InstrumentConfigEditor show={show} onSaved={handleClose} onAudioFileChange={setAudioFileUrl} onMidiDeviceSelect={handleMidiDeviceSelect}></InstrumentConfigEditor>
-                        </>
-
-                      )}
-
-                    </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                    <Config RecordingTypeChanged={handleRecordingTypeChange} value={recordingType} />
+                    {recordingType === "keyboard" && !hasKeyboardPermission && (
+                      <Button variant="primary" size="sm" onClick={enableKeyboard}>
+                        Enable Keyboard
+                      </Button>
+                    )}
+                    {recordingType === "midi" && !hasMidiPermission && (
+                      <Button variant="primary" size="sm" onClick={enableMidi}>
+                        Enable MIDI
+                      </Button>
+                    )}
                   </div>
+                  {((recordingType === "keyboard" && hasKeyboardPermission) || (recordingType === "midi" && hasMidiPermission)) && (
+                    <InstrumentConfigEditor
+                      show={show}
+                      mode={recordingType}
+                      onSaved={handleClose}
+                      onAudioFileChange={setAudioFileUrl}
+                      onMidiDeviceSelect={handleMidiDeviceSelect}
+                      onKeyMapChange={setKeyMappings}
+                      persistedSelectedId={persistedConfigId}
+                      onSelectedIdChange={setPersistedConfigId}
+                      configs={configs}
+                      setConfigs={setConfigs}
+                    />
+                  )}
                 </Modal.Body>
                 <Modal.Footer>
                   <Button variant="secondary" onClick={handleClose}>Close</Button>
