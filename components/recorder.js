@@ -1298,7 +1298,7 @@ function InstrumentConfigEditor({ show, mode, onSaved, onAudioFileChange, onMidi
             </span>
             <input
               type="text"
-              value={draft.settings?.keyMap || ""}
+              value={draft.settings?.keyMap || DEFAULT_KEY_MAP}
               onChange={handleKeyMapChange}
               maxLength={13}
               style={{ width: '100%', fontFamily: 'monospace', letterSpacing: '0.5rem' }}
