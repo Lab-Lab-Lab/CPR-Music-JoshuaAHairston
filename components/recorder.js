@@ -991,7 +991,7 @@ function MidiTable({ value, onChange }) {
 function toRelativeMediaUrl(url) {
   if (!url) return null;
   const parsed = new URL(url);
-  return parsed.pathname + parsed.search;
+  return parsed.pathname;
 }
 
 function InstrumentConfigEditor({ show, mode, onSaved, onAudioFileChange, onMidiDeviceSelect, onKeyMapChange, persistedSelectedId, onSelectedIdChange, configs, setConfigs }) {
