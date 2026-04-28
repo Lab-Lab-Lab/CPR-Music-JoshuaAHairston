@@ -991,7 +991,7 @@ function MidiTable({ value, onChange }) {
 function toRelativeMediaUrl(url) {
   if (!url) return null;
   const parsed = new URL(url);
-  return parsed.pathname + parsed.search;
+  return parsed.pathname;
 }
 
 function InstrumentConfigEditor({ show, mode, onSaved, onAudioFileChange, onMidiDeviceSelect, onKeyMapChange, persistedSelectedId, onSelectedIdChange, configs, setConfigs }) {
@@ -1317,11 +1317,9 @@ function InstrumentConfigEditor({ show, mode, onSaved, onAudioFileChange, onMidi
           accept=".mp3,.wav"
           onChange={handleFileChange}
         />
-        {typeof draft.file === 'string' && draft.file && (
-          <div style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: '#888' }}>
-            Current: {draft.file.split('/').pop()}
-          </div>
-        )}
+        <div style={{ marginTop: '0.35rem', fontSize: '1rem', color: '#888' }}>
+          {typeof draft.file === 'string' && draft.file ? 'File selected' : 'No file selected'}
+        </div>
         {fileError && (
           <div style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: 'red' }}>{fileError}</div>
         )}
@@ -1630,7 +1628,7 @@ export function Recorder({ submit, accompaniment }) {
 
     if (!audioFileUrl) return;
 
-    const newSampler = new Sampler({ C5: audioFileUrl }).toDestination();
+    const newSampler = new Sampler({ C5: audioFileUrl }, { volume: -12 }).toDestination();
     sampler.current = newSampler;
     loaded().then(() => {
       if (sampler.current === newSampler) {
