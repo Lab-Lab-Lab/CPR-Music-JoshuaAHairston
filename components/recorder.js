@@ -991,6 +991,7 @@ function MidiTable({ value, onChange }) {
 function toRelativeMediaUrl(url) {
   if (!url) return null;
   const parsed = new URL(url);
+  console.log("testing, testings")
   return parsed.pathname;
 }
 
