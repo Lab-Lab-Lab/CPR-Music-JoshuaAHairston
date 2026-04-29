@@ -57,3 +57,7 @@ yarn-error.log*
 .dev.vars*
 !.dev.vars.example
 !.env.example
+
+
+# claude markdown for "remembering" context
+CLAUDE.md
